@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { GoogleLogin } from '@react-oauth/google';
-import { ShieldCheck, MailX, ShieldAlert, Sun, Moon } from 'lucide-react';
+import { ShieldCheck, MailX, ShieldAlert } from 'lucide-react';
 
 const ALLOWED_DOMAINS = ['outdoorequipped.com', 'channelprecision.com'];
 
 export default function Login() {
   const { loginWithGoogle } = useAuth();
-  const { resolvedTheme, toggleTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
@@ -34,15 +34,6 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex justify-end mb-3">
-          <button
-            onClick={toggleTheme}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition"
-          >
-            {resolvedTheme === 'dark' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-            {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
-          </button>
-        </div>
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="bg-indigo-600 p-3 rounded-2xl mb-4 shadow-lg shadow-indigo-600/30">
