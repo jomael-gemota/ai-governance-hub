@@ -6,9 +6,162 @@
     font-family: "Poppins", sans-serif;
   }
 
-  body {
-    @apply bg-slate-950 text-slate-100 antialiased;
+  button {
+    cursor: pointer;
   }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  body {
+    @apply antialiased;
+  }
+}
+
+:root[data-theme='dark'] {
+  --app-bg: #0c1622;
+  --panel-bg: #111f2e;
+  --panel-muted: #162738;
+  --panel-accent: #1a2f44;
+  --border: #274158;
+  --text-main: #e8f0f8;
+  --text-secondary: #b7c7d8;
+  --text-muted: #8ea4ba;
+  --accent-primary: #4a97cd;
+  --accent-hover: #62a8d8;
+  --accent-soft: rgba(74, 151, 205, 0.14);
+  --accent-soft-border: rgba(74, 151, 205, 0.34);
+}
+
+:root[data-theme='light'] {
+  --app-bg: #f5f8fc;
+  --panel-bg: #ffffff;
+  --panel-muted: #f0f4f9;
+  --panel-accent: #eef3fb;
+  --border: #d7e1ec;
+  --text-main: #0f1b2a;
+  --text-secondary: #334a62;
+  --text-muted: #63758a;
+  --accent-primary: #1f77b4;
+  --accent-hover: #175e90;
+  --accent-soft: rgba(31, 119, 180, 0.14);
+  --accent-soft-border: rgba(31, 119, 180, 0.34);
+}
+
+:root[data-theme='dark'] body,
+:root[data-theme='dark'] .bg-slate-950,
+:root[data-theme='light'] body,
+:root[data-theme='light'] .bg-slate-950 {
+  background-color: var(--app-bg) !important;
+  color: var(--text-main) !important;
+}
+
+:root[data-theme='dark'] .bg-slate-900,
+:root[data-theme='dark'] .bg-slate-900\/95,
+:root[data-theme='dark'] .bg-slate-900\/60,
+:root[data-theme='light'] .bg-slate-900,
+:root[data-theme='light'] .bg-slate-900\/95,
+:root[data-theme='light'] .bg-slate-900\/60 {
+  background-color: var(--panel-bg) !important;
+}
+
+:root[data-theme='dark'] .bg-slate-800,
+:root[data-theme='dark'] .bg-slate-800\/80,
+:root[data-theme='dark'] .bg-slate-800\/60,
+:root[data-theme='dark'] .bg-slate-800\/50,
+:root[data-theme='light'] .bg-slate-800,
+:root[data-theme='light'] .bg-slate-800\/80,
+:root[data-theme='light'] .bg-slate-800\/60,
+:root[data-theme='light'] .bg-slate-800\/50 {
+  background-color: var(--panel-muted) !important;
+}
+
+:root[data-theme='light'] .border-slate-800,
+:root[data-theme='light'] .border-slate-700 {
+  border-color: var(--border) !important;
+}
+
+:root[data-theme='dark'] .text-white,
+:root[data-theme='dark'] .text-slate-100,
+:root[data-theme='light'] .text-white,
+:root[data-theme='light'] .text-slate-100 {
+  color: var(--text-main) !important;
+}
+
+:root[data-theme='dark'] .text-slate-200,
+:root[data-theme='dark'] .text-slate-300,
+:root[data-theme='light'] .text-slate-200,
+:root[data-theme='light'] .text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+
+:root[data-theme='dark'] .text-slate-400,
+:root[data-theme='dark'] .text-slate-500,
+:root[data-theme='dark'] .text-slate-600,
+:root[data-theme='light'] .text-slate-400,
+:root[data-theme='light'] .text-slate-500,
+:root[data-theme='light'] .text-slate-600 {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme='dark'] .hover\:bg-slate-800:hover,
+:root[data-theme='dark'] .hover\:bg-slate-700:hover,
+:root[data-theme='light'] .hover\:bg-slate-800:hover,
+:root[data-theme='light'] .hover\:bg-slate-700:hover {
+  background-color: var(--panel-accent) !important;
+}
+
+:root[data-theme='light'] .hover\:text-white:hover {
+  color: var(--text-main) !important;
+}
+
+:root[data-theme='dark'] .bg-indigo-600,
+:root[data-theme='light'] .bg-indigo-600 {
+  background-color: var(--accent-primary) !important;
+}
+
+:root[data-theme='dark'] .hover\:bg-indigo-500:hover,
+:root[data-theme='light'] .hover\:bg-indigo-500:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+:root[data-theme='dark'] .text-indigo-400,
+:root[data-theme='dark'] .text-indigo-300,
+:root[data-theme='light'] .text-indigo-400,
+:root[data-theme='light'] .text-indigo-300 {
+  color: var(--accent-primary) !important;
+}
+
+:root[data-theme='dark'] .bg-indigo-600\/20,
+:root[data-theme='dark'] .bg-indigo-600\/10,
+:root[data-theme='light'] .bg-indigo-600\/20,
+:root[data-theme='light'] .bg-indigo-600\/10 {
+  background-color: var(--accent-soft) !important;
+}
+
+:root[data-theme='dark'] .border-indigo-600\/30,
+:root[data-theme='dark'] .border-indigo-600\/20,
+:root[data-theme='light'] .border-indigo-600\/30,
+:root[data-theme='light'] .border-indigo-600\/20 {
+  border-color: var(--accent-soft-border) !important;
+}
+
+:root[data-theme='dark'] .focus\:ring-indigo-500:focus,
+:root[data-theme='light'] .focus\:ring-indigo-500:focus {
+  --tw-ring-color: var(--accent-primary) !important;
+}
+
+:root[data-theme='dark'] .bg-slate-950\/80,
+:root[data-theme='dark'] .bg-slate-900\/35,
+:root[data-theme='light'] .bg-slate-950\/80,
+:root[data-theme='light'] .bg-slate-900\/35 {
+  background-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+:root[data-theme='dark'] .shadow-indigo-600\/30,
+:root[data-theme='light'] .shadow-indigo-600\/30 {
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--accent-primary) 25%, transparent) !important;
 }
 
 @layer utilities {

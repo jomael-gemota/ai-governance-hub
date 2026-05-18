@@ -7,13 +7,17 @@ import {
   User,
   PlusCircle,
   Mail,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
 
 const navItems = [{ to: '/projects', label: 'Projects', icon: FolderKanban, exact: true }];
 
 export default function Layout({ children }) {
   const { user, logout, isAuditor, isCreator } = useAuth();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -28,12 +32,18 @@ export default function Layout({ children }) {
       <aside className="w-64 h-screen shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col overflow-hidden">
         <div className="p-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-1.5 rounded-lg">
+            <div
+              className={`p-1.5 rounded-lg ${
+                resolvedTheme === 'light'
+                  ? 'bg-indigo-600/20 border border-indigo-600/30'
+                  : 'bg-indigo-600'
+              }`}
+            >
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white leading-tight">AI Governance</p>
-              <p className="text-xs text-slate-400 leading-tight">Hub</p>
+              <p className="text-sm font-bold text-white leading-tight tracking-tight">AI Governance</p>
+              <p className="text-xs text-slate-400 leading-tight font-medium">Hub</p>
             </div>
           </div>
         </div>
@@ -93,7 +103,14 @@ export default function Layout({ children }) {
           )}
         </nav>
 
-        <div className="p-3 border-t border-slate-800">
+        <div className="p-3 border-t border-slate-800 space-y-2">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-start gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          >
+            {resolvedTheme === 'dark' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+            {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
+          </button>
           <div className="flex items-center gap-3 px-3 py-2 mb-1">
             {user?.picture ? (
               <img

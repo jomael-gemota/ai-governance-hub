@@ -222,7 +222,7 @@ export default function ProjectDetail() {
         {project.techStack?.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {project.techStack.map((tech) => (
-              <span key={tech} className="bg-indigo-600/10 border border-indigo-600/20 text-indigo-300 text-xs px-2.5 py-1 rounded-lg">
+              <span key={tech} className="bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 text-xs px-2.5 py-1 rounded-lg">
                 {tech}
               </span>
             ))}
@@ -340,7 +340,7 @@ export default function ProjectDetail() {
                   </span>
                   <button
                     onClick={() => setPreviewItem({ type: 'pdf', url: item.url, name: item.originalName })}
-                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 transition shrink-0"
+                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 transition shrink-0"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     Preview

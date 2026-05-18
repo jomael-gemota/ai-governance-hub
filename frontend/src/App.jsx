@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
@@ -16,14 +17,30 @@ const queryClient = new QueryClient({
   },
 });
 
+function AppToaster() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  return (
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        style: isDark
+          ? { background: '#1a2f44', color: '#e8f0f8', border: '1px solid #274158' }
+          : { background: '#ffffff', color: '#0f1b2a', border: '1px solid #d7e1ec' },
+      }}
+    />
+  );
+}
+
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
 
               <Route
                 path="/"
@@ -79,17 +96,13 @@ export default function App() {
               }
             />
 
-              <Route path="*" element={<Navigate to="/projects" replace />} />
-            </Routes>
-          </BrowserRouter>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
-            }}
-          />
-        </AuthProvider>
-      </QueryClientProvider>
+                <Route path="*" element={<Navigate to="/projects" replace />} />
+              </Routes>
+            </BrowserRouter>
+            <AppToaster />
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }
