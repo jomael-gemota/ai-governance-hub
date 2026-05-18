@@ -1,13 +1,52 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Filter, PlusCircle, FolderOpen } from 'lucide-react';
+import { Search, Filter, PlusCircle, FolderOpen, LayoutGrid, List, ChevronRight, AlertTriangle, User } from 'lucide-react';
 import api from '../api/axios';
 import ProjectCard from '../components/ProjectCard';
 import { useAuth } from '../context/AuthContext';
+import { StatusBadge, RiskBadge } from '../components/StatusBadge';
 
 const STATUSES = ['', 'planning', 'active', 'on-hold', 'completed', 'failed'];
 const RISKS = ['', 'low', 'medium', 'high', 'critical'];
+
+function ProjectListRow({ project }) {
+  const unresolvedIncidents = project.incidents?.filter((i) => !i.resolved).length || 0;
+  const completedMilestones = project.milestones?.filter((m) => m.completed).length || 0;
+  const totalMilestones = project.milestones?.length || 0;
+
+  return (
+    <Link
+      to={`/projects/${project._id}`}
+      className="group flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 hover:border-indigo-600/40 hover:bg-slate-900/80 transition"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <p className="text-sm font-semibold text-white truncate group-hover:text-indigo-400 transition">
+            {project.name}
+          </p>
+          <StatusBadge status={project.status} />
+          <RiskBadge risk={project.riskLevel} />
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1">
+            <User className="w-3.5 h-3.5" />
+            {project.owner?.name || 'No owner'}
+          </span>
+          {project.owner?.department && <span>{project.owner.department}</span>}
+          {totalMilestones > 0 && <span>{completedMilestones}/{totalMilestones} milestones</span>}
+          {unresolvedIncidents > 0 && (
+            <span className="inline-flex items-center gap-1 text-red-400">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {unresolvedIncidents} open incident{unresolvedIncidents > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition shrink-0" />
+    </Link>
+  );
+}
 
 export default function Projects() {
   const { isCreator } = useAuth();
@@ -15,6 +54,11 @@ export default function Projects() {
   const [status, setStatus] = useState('');
   const [riskLevel, setRiskLevel] = useState('');
   const [page, setPage] = useState(1);
+  const [view, setView] = useState(() => localStorage.getItem('projects-view-mode') || 'grid');
+
+  useEffect(() => {
+    localStorage.setItem('projects-view-mode', view);
+  }, [view]);
 
   const queryKey = ['projects', { search, status, riskLevel, page }];
   const { data, isLoading } = useQuery({
@@ -40,15 +84,45 @@ export default function Projects() {
             {data?.total != null ? `${data.total} AI initiative${data.total !== 1 ? 's' : ''} tracked` : 'Loading...'}
           </p>
         </div>
-        {isCreator && (
-          <Link
-            to="/projects/new"
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
-          >
-            <PlusCircle className="w-4 h-4" />
-            New Project
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+            <button
+              onClick={() => setView('grid')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition ${
+                view === 'grid'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Grid
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition ${
+                view === 'list'
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+              aria-label="List view"
+            >
+              <List className="w-3.5 h-3.5" />
+              List
+            </button>
+          </div>
+
+          {isCreator && (
+            <Link
+              to="/projects/new"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 border border-indigo-600/30 text-sm font-medium px-4 py-2 rounded-lg transition shadow-sm"
+              style={{ color: '#ffffff' }}
+            >
+              <PlusCircle className="w-4 h-4" />
+              New Project
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -103,11 +177,19 @@ export default function Projects() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {data?.projects?.map((project) => (
-              <ProjectCard key={project._id} project={project} />
-            ))}
-          </div>
+          {view === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {data?.projects?.map((project) => (
+                <ProjectCard key={project._id} project={project} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {data?.projects?.map((project) => (
+                <ProjectListRow key={project._id} project={project} />
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {data?.pages > 1 && (
