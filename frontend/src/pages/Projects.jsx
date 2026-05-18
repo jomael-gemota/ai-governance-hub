@@ -10,7 +10,7 @@ const STATUSES = ['', 'planning', 'active', 'on-hold', 'completed', 'failed'];
 const RISKS = ['', 'low', 'medium', 'high', 'critical'];
 
 export default function Projects() {
-  const { isAuditor } = useAuth();
+  const { isCreator } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [riskLevel, setRiskLevel] = useState('');
@@ -40,7 +40,7 @@ export default function Projects() {
             {data?.total != null ? `${data.total} AI initiative${data.total !== 1 ? 's' : ''} tracked` : 'Loading...'}
           </p>
         </div>
-        {isAuditor && (
+        {isCreator && (
           <Link
             to="/projects/new"
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
@@ -98,7 +98,7 @@ export default function Projects() {
           <FolderOpen className="w-12 h-12 text-slate-700 mb-3" />
           <p className="text-slate-400 font-medium">No projects found</p>
           <p className="text-slate-500 text-sm mt-1">
-            {isAuditor ? 'Create your first AI project to get started.' : 'No projects match your filters.'}
+            {isCreator ? 'Create your first AI project to get started.' : 'No projects match your filters.'}
           </p>
         </div>
       ) : (

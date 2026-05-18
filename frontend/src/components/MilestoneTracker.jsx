@@ -54,7 +54,7 @@ function AddMilestoneForm({ projectId, onClose }) {
 }
 
 export default function MilestoneTracker({ project }) {
-  const { isAuditor } = useAuth();
+  const { isCreator } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const qc = useQueryClient();
 
@@ -79,7 +79,7 @@ export default function MilestoneTracker({ project }) {
             <span className="text-slate-500 text-xs">{completed}/{milestones.length} complete</span>
           )}
         </div>
-        {isAuditor && (
+        {isCreator && (
           <button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition"
@@ -117,9 +117,9 @@ export default function MilestoneTracker({ project }) {
               className={`flex items-center gap-3 p-3 rounded-lg transition ${m.completed ? 'opacity-60' : ''}`}
             >
               <button
-                onClick={() => isAuditor && toggleMutation.mutate({ milestoneId: m._id, completed: !m.completed })}
-                disabled={!isAuditor || toggleMutation.isPending}
-                className={`shrink-0 transition ${isAuditor ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+                onClick={() => isCreator && toggleMutation.mutate({ milestoneId: m._id, completed: !m.completed })}
+                disabled={!isCreator || toggleMutation.isPending}
+                className={`shrink-0 transition ${isCreator ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
               >
                 {m.completed
                   ? <CheckCircle className="w-5 h-5 text-emerald-400" />

@@ -1,8 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const Invitation = require('../models/Invitation');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
@@ -19,36 +19,7 @@ const signToken = (userId) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 
-// POST /api/auth/login — email + password
-router.post(
-  '/login',
-  [
-    body('email').isEmail().withMessage('Valid email required'),
-    body('password').notEmpty().withMessage('Password required'),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    const { email, password } = req.body;
-    try {
-      const user = await User.findOne({ email });
-      if (!user || user.authProvider !== 'local') {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      const match = await user.comparePassword(password);
-      if (!match) return res.status(401).json({ message: 'Invalid credentials' });
-
-      const token = signToken(user._id);
-      res.json({ token, user: user.toSafeObject() });
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  }
-);
-
-// POST /api/auth/google — Google OAuth sign-in
+// POST /api/auth/google
 router.post('/google', async (req, res) => {
   const { credential } = req.body;
   if (!credential) return res.status(400).json({ message: 'Google credential is required' });
@@ -63,38 +34,72 @@ router.post('/google', async (req, res) => {
     const email = payload.email?.toLowerCase();
     const domain = email?.split('@')[1];
 
+    // 1. Domain allowlist
     if (!domain || !ALLOWED_DOMAINS.includes(domain)) {
       return res.status(403).json({
-        message: `Access restricted. Only ${ALLOWED_DOMAINS.join(' and ')} accounts are allowed.`,
+        code: 'DOMAIN_NOT_ALLOWED',
+        message: `Access is restricted to ${ALLOWED_DOMAINS.map((d) => '@' + d).join(' and ')} accounts.`,
       });
     }
 
+    const bootstrapEmail = (process.env.BOOTSTRAP_AUDITOR_EMAIL || '').toLowerCase().trim();
     let user = await User.findOne({ email });
 
+    // 2. Existing user — sign in
     if (user) {
-      // Existing user — update Google fields if missing
-      if (!user.googleId) {
-        user.googleId = payload.sub;
-        user.picture = payload.picture || null;
-        if (user.authProvider === 'local' && !user.passwordHash) {
-          user.authProvider = 'google';
-        }
-        await user.save();
+      // Migrate legacy 'executive' role from old schema -> 'creator'
+      if (user.role === 'executive') user.role = 'creator';
+      // Promote bootstrap email to auditor if not already
+      if (bootstrapEmail && email === bootstrapEmail && user.role !== 'auditor') {
+        user.role = 'auditor';
       }
-    } else {
-      // New user — auto-provision with executive role
+      user.googleId = user.googleId || payload.sub;
+      user.picture = payload.picture || user.picture;
+      user.lastLoginAt = new Date();
+      await user.save();
+
+      const token = signToken(user._id);
+      return res.json({ token, user: user.toSafeObject() });
+    }
+
+    // 3. New user — check for bootstrap auditor
+    if (bootstrapEmail && email === bootstrapEmail) {
       user = await User.create({
         name: payload.name,
         email,
         googleId: payload.sub,
         picture: payload.picture || null,
-        authProvider: 'google',
-        role: 'executive',
+        role: 'auditor',
+        lastLoginAt: new Date(),
+      });
+      const token = signToken(user._id);
+      return res.json({ token, user: user.toSafeObject() });
+    }
+
+    // 4. New user — check for valid invitation
+    const invitation = await Invitation.findOne({ email, status: 'pending' });
+    if (!invitation) {
+      return res.status(403).json({
+        code: 'NOT_INVITED',
+        message: `You are not qualified to log in to the hub. Please contact an auditor to invite you first.`,
       });
     }
 
+    user = await User.create({
+      name: payload.name,
+      email,
+      googleId: payload.sub,
+      picture: payload.picture || null,
+      role: invitation.role,
+      lastLoginAt: new Date(),
+    });
+
+    invitation.status = 'accepted';
+    invitation.acceptedAt = new Date();
+    await invitation.save();
+
     const token = signToken(user._id);
-    res.json({ token, user: user.toSafeObject() });
+    return res.json({ token, user: user.toSafeObject() });
   } catch (err) {
     console.error('Google auth error:', err.message);
     res.status(401).json({ message: 'Google sign-in failed. Please try again.' });

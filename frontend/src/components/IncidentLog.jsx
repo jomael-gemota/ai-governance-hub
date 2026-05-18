@@ -74,7 +74,7 @@ function AddIncidentForm({ projectId, onClose }) {
 }
 
 function IncidentItem({ incident, projectId }) {
-  const { isAuditor } = useAuth();
+  const { isCreator } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const qc = useQueryClient();
 
@@ -108,7 +108,7 @@ function IncidentItem({ incident, projectId }) {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isAuditor && !incident.resolved && (
+          {isCreator && !incident.resolved && (
             <button
               onClick={() => resolveMutation.mutate({ resolved: true })}
               disabled={resolveMutation.isPending}
@@ -132,7 +132,7 @@ function IncidentItem({ incident, projectId }) {
 }
 
 export default function IncidentLog({ project }) {
-  const { isAuditor } = useAuth();
+  const { isCreator } = useAuth();
   const [showForm, setShowForm] = useState(false);
 
   const openIncidents = project.incidents?.filter((i) => !i.resolved) || [];
@@ -150,7 +150,7 @@ export default function IncidentLog({ project }) {
             </span>
           )}
         </div>
-        {isAuditor && (
+        {isCreator && (
           <button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition"

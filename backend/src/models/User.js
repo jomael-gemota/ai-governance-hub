@@ -1,23 +1,16 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, default: null },
-    role: { type: String, enum: ['auditor', 'executive'], default: 'executive' },
+    role: { type: String, enum: ['auditor', 'creator'], default: 'creator' },
     googleId: { type: String, default: null },
     picture: { type: String, default: null },
-    authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
+    lastLoginAt: { type: Date },
   },
   { timestamps: true }
 );
-
-userSchema.methods.comparePassword = async function (password) {
-  if (!this.passwordHash) return false;
-  return bcrypt.compare(password, this.passwordHash);
-};
 
 userSchema.methods.toSafeObject = function () {
   return {
@@ -26,8 +19,8 @@ userSchema.methods.toSafeObject = function () {
     email: this.email,
     role: this.role,
     picture: this.picture,
-    authProvider: this.authProvider,
     createdAt: this.createdAt,
+    lastLoginAt: this.lastLoginAt,
   };
 };
 

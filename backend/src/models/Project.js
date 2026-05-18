@@ -32,6 +32,39 @@ const ownerSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const attachmentSchema = new mongoose.Schema(
+  {
+    filename: { type: String, required: true },
+    originalName: { type: String, required: true },
+    mimeType: { type: String, required: true },
+    size: { type: Number, required: true },
+    url: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const problemDefinitionSchema = new mongoose.Schema(
+  {
+    currentProcess: { type: String, default: '' },
+    currentTiming: { type: String, default: '' },
+    idealOutcome: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const proposedSolutionSchema = new mongoose.Schema(
+  {
+    implementationApproach: { type: String, default: '' },
+    impactedWorkflow: { type: String, default: '' },
+    targetUsers: { type: String, default: '' },
+    dataSources: { type: String, default: '' },
+    validationMethod: { type: String, default: '' },
+    estimatedTimeSavings: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
 const projectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -52,6 +85,10 @@ const projectSchema = new mongoose.Schema(
     targetEndDate: { type: Date },
     budget: { type: Number, default: 0 },
     notes: { type: String, default: '' },
+    problemDefinition: { type: problemDefinitionSchema, default: () => ({}) },
+    proposedSolution: { type: proposedSolutionSchema, default: () => ({}) },
+    media: { type: [attachmentSchema], default: [] },
+    documents: { type: [attachmentSchema], default: [] },
     milestones: [milestoneSchema],
     incidents: [incidentSchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

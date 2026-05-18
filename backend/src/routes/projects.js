@@ -1,9 +1,94 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const Project = require('../models/Project');
 const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
+const uploadsRoot = path.join(__dirname, '..', '..', 'uploads');
+const mediaDir = path.join(uploadsRoot, 'media');
+const documentsDir = path.join(uploadsRoot, 'documents');
+fs.mkdirSync(mediaDir, { recursive: true });
+fs.mkdirSync(documentsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'media') return cb(null, mediaDir);
+    return cb(null, documentsDir);
+  },
+  filename: (_req, file, cb) => {
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safeName}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    files: 8,
+    fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.fieldname === 'media') {
+      if (file.mimetype.startsWith('image/')) return cb(null, true);
+      return cb(new Error('Only image files are allowed for media uploads.'));
+    }
+    if (file.fieldname === 'documents') {
+      if (file.mimetype === 'application/pdf') return cb(null, true);
+      return cb(new Error('Only PDF files are allowed for documentation uploads.'));
+    }
+    cb(new Error('Unexpected upload field.'));
+  },
+});
+
+const uploadFields = upload.fields([
+  { name: 'media', maxCount: 5 },
+  { name: 'documents', maxCount: 3 },
+]);
+
+const toAttachment = (file) => ({
+  filename: file.filename,
+  originalName: file.originalname,
+  mimeType: file.mimetype,
+  size: file.size,
+  url: `/uploads/${file.fieldname}/${file.filename}`,
+  uploadedAt: new Date(),
+});
+
+const parseJsonField = (value, fallback) => {
+  if (!value) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const parseProjectPayload = (req, fallbackOwner) => {
+  const body = req.body || {};
+  return {
+    name: body.name?.trim(),
+    description: body.description || '',
+    notes: body.notes || '',
+    status: body.status || 'planning',
+    riskLevel: body.riskLevel || 'low',
+    budget: body.budget ? Number(body.budget) : 0,
+    startDate: body.startDate || undefined,
+    targetEndDate: body.targetEndDate || undefined,
+    owner: {
+      name: fallbackOwner.name,
+      email: fallbackOwner.email,
+      department: body.ownerDepartment || '',
+    },
+    techStack: parseJsonField(body.techStack, []).filter(Boolean),
+    problemDefinition: parseJsonField(body.problemDefinition, {}),
+    proposedSolution: parseJsonField(body.proposedSolution, {}),
+    existingMedia: parseJsonField(body.existingMedia, []),
+    existingDocuments: parseJsonField(body.existingDocuments, []),
+  };
+};
 
 // All routes require authentication
 router.use(authenticate);
@@ -45,33 +130,48 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/projects - create project (auditor only)
-router.post(
-  '/',
-  requireRole('auditor'),
-  [
-    body('name').notEmpty().withMessage('Project name is required'),
-    body('owner.name').notEmpty().withMessage('Owner name is required'),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    try {
-      const project = new Project({ ...req.body, createdBy: req.user._id });
-      await project.save();
-      await project.populate('createdBy', 'name email');
-      res.status(201).json(project);
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  }
-);
-
-// PUT /api/projects/:id - update project (auditor only)
-router.put('/:id', requireRole('auditor'), async (req, res) => {
+// POST /api/projects - create project (creator only)
+router.post('/', requireRole('creator'), uploadFields, async (req, res) => {
   try {
-    const { incidents, milestones, ...updateData } = req.body;
+    const payload = parseProjectPayload(req, {
+      name: req.user.name,
+      email: req.user.email,
+    });
+    if (!payload.name) return res.status(400).json({ message: 'Project name is required' });
+
+    const mediaUploads = (req.files?.media || []).map(toAttachment);
+    const documentUploads = (req.files?.documents || []).map(toAttachment);
+
+    const project = new Project({
+      ...payload,
+      media: mediaUploads.slice(0, 5),
+      documents: documentUploads.slice(0, 3),
+      createdBy: req.user._id,
+    });
+    await project.save();
+    await project.populate('createdBy', 'name email');
+    res.status(201).json(project);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/projects/:id - update project (creator only)
+router.put('/:id', requireRole('creator'), uploadFields, async (req, res) => {
+  try {
+    const payload = parseProjectPayload(req, {
+      name: req.user.name,
+      email: req.user.email,
+    });
+    if (!payload.name) return res.status(400).json({ message: 'Project name is required' });
+    const mediaUploads = (req.files?.media || []).map(toAttachment);
+    const documentUploads = (req.files?.documents || []).map(toAttachment);
+    const mergedMedia = [...payload.existingMedia, ...mediaUploads].slice(0, 5);
+    const mergedDocuments = [...payload.existingDocuments, ...documentUploads].slice(0, 3);
+
+    const { existingMedia, existingDocuments, ...updateData } = payload;
+    updateData.media = mergedMedia;
+    updateData.documents = mergedDocuments;
     const project = await Project.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
@@ -84,8 +184,8 @@ router.put('/:id', requireRole('auditor'), async (req, res) => {
   }
 });
 
-// DELETE /api/projects/:id (auditor only)
-router.delete('/:id', requireRole('auditor'), async (req, res) => {
+// DELETE /api/projects/:id (creator only)
+router.delete('/:id', requireRole('creator'), async (req, res) => {
   try {
     const project = await Project.findByIdAndDelete(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -95,14 +195,12 @@ router.delete('/:id', requireRole('auditor'), async (req, res) => {
   }
 });
 
-// POST /api/projects/:id/incidents - log incident (auditor only)
+// POST /api/projects/:id/incidents - log incident (creator only)
 router.post(
   '/:id/incidents',
-  requireRole('auditor'),
-  [body('title').notEmpty().withMessage('Incident title is required')],
+  requireRole('creator'),
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!req.body?.title) return res.status(400).json({ message: 'Incident title is required' });
 
     try {
       const project = await Project.findById(req.params.id);
@@ -117,8 +215,8 @@ router.post(
   }
 );
 
-// PATCH /api/projects/:id/incidents/:incidentId - update incident (auditor only)
-router.patch('/:id/incidents/:incidentId', requireRole('auditor'), async (req, res) => {
+// PATCH /api/projects/:id/incidents/:incidentId - update incident (creator only)
+router.patch('/:id/incidents/:incidentId', requireRole('creator'), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -135,8 +233,8 @@ router.patch('/:id/incidents/:incidentId', requireRole('auditor'), async (req, r
   }
 });
 
-// POST /api/projects/:id/milestones (auditor only)
-router.post('/:id/milestones', requireRole('auditor'), async (req, res) => {
+// POST /api/projects/:id/milestones (creator only)
+router.post('/:id/milestones', requireRole('creator'), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -149,8 +247,8 @@ router.post('/:id/milestones', requireRole('auditor'), async (req, res) => {
   }
 });
 
-// PATCH /api/projects/:id/milestones/:milestoneId (auditor only)
-router.patch('/:id/milestones/:milestoneId', requireRole('auditor'), async (req, res) => {
+// PATCH /api/projects/:id/milestones/:milestoneId (creator only)
+router.patch('/:id/milestones/:milestoneId', requireRole('creator'), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -165,6 +263,16 @@ router.patch('/:id/milestones/:milestoneId', requireRole('auditor'), async (req,
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
+});
+
+router.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: `Upload error: ${err.message}` });
+  }
+  if (err) {
+    return res.status(400).json({ message: err.message || 'Upload failed' });
+  }
+  next();
 });
 
 module.exports = router;

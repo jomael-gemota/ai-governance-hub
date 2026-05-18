@@ -5,10 +5,10 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectForm from './pages/ProjectForm';
+import Invitations from './pages/Invitations';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,20 +19,20 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/projects" replace />
+                  </ProtectedRoute>
+                }
+              />
 
             <Route
               path="/projects"
@@ -43,14 +43,14 @@ export default function App() {
               }
             />
 
-            <Route
-              path="/projects/new"
-              element={
-                <ProtectedRoute requiredRole="auditor">
-                  <ProjectForm />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/projects/new"
+                element={
+                  <ProtectedRoute requiredRole="creator">
+                    <ProjectForm />
+                  </ProtectedRoute>
+                }
+              />
 
             <Route
               path="/projects/:id"
@@ -61,26 +61,35 @@ export default function App() {
               }
             />
 
+              <Route
+                path="/projects/:id/edit"
+                element={
+                  <ProtectedRoute requiredRole="creator">
+                    <ProjectForm />
+                  </ProtectedRoute>
+                }
+              />
+
             <Route
-              path="/projects/:id/edit"
+              path="/invitations"
               element={
                 <ProtectedRoute requiredRole="auditor">
-                  <ProjectForm />
+                  <Invitations />
                 </ProtectedRoute>
               }
             />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
-          }}
-        />
-      </AuthProvider>
-    </QueryClientProvider>
+              <Route path="*" element={<Navigate to="/projects" replace />} />
+            </Routes>
+          </BrowserRouter>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
+            }}
+          />
+        </AuthProvider>
+      </QueryClientProvider>
     </GoogleOAuthProvider>
   );
 }

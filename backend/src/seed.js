@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
 const User = require('./models/User');
 const Project = require('./models/Project');
+const Invitation = require('./models/Invitation');
 
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -15,16 +15,8 @@ async function seed() {
 
   await User.deleteMany({});
   await Project.deleteMany({});
+  await Invitation.deleteMany({});
   console.log('Cleared existing data');
-
-  const passwordHash = await bcrypt.hash('auditor123', 12);
-  const execHash = await bcrypt.hash('executive123', 12);
-
-  const [auditor, executive] = await User.insertMany([
-    { name: 'Alex Rivera', email: 'auditor@company.com', passwordHash, role: 'auditor' },
-    { name: 'Morgan Chen', email: 'executive@company.com', passwordHash: execHash, role: 'executive' },
-  ]);
-  console.log('Created users');
 
   const today = new Date();
   const daysFromNow = (n) => new Date(today.getTime() + n * 86400000);
@@ -59,7 +51,6 @@ async function seed() {
           resolvedNotes: 'Added composite index on customer_id + created_at. Latency reduced to 22 minutes.',
         },
       ],
-      createdBy: auditor._id,
     },
     {
       name: 'AI-Powered Contract Reviewer',
@@ -97,7 +88,6 @@ async function seed() {
           resolved: false,
         },
       ],
-      createdBy: auditor._id,
     },
     {
       name: 'Internal IT Helpdesk Chatbot',
@@ -117,7 +107,6 @@ async function seed() {
         { title: 'Production launch', dueDate: daysAgo(30), completed: true, completedAt: daysAgo(30) },
       ],
       incidents: [],
-      createdBy: auditor._id,
     },
     {
       name: 'Automated Financial Report Summarizer',
@@ -129,7 +118,7 @@ async function seed() {
       startDate: daysFromNow(14),
       targetEndDate: daysFromNow(90),
       budget: 35000,
-      notes: 'Awaiting sign-off from CFO. Vendor evaluation between OpenAI and Anthropic is complete — Anthropic Claude 3.5 selected for accuracy and citation quality.',
+      notes: 'Awaiting sign-off from CFO. Vendor evaluation between OpenAI and Anthropic is complete - Anthropic Claude 3.5 selected for accuracy and citation quality.',
       milestones: [
         { title: 'Vendor selection & contract', dueDate: daysFromNow(10), completed: false },
         { title: 'Prototype with 2 past reports', dueDate: daysFromNow(35), completed: false },
@@ -137,7 +126,6 @@ async function seed() {
         { title: 'Q3 report pilot', dueDate: daysFromNow(90), completed: false },
       ],
       incidents: [],
-      createdBy: auditor._id,
     },
     {
       name: 'Predictive Maintenance for Manufacturing',
@@ -181,7 +169,6 @@ async function seed() {
           resolvedNotes: 'Retention policy fixed. However, data loss was detected for a 6-hour window.',
         },
       ],
-      createdBy: auditor._id,
     },
     {
       name: 'Employee Sentiment Analysis Platform',
@@ -209,14 +196,16 @@ async function seed() {
           resolved: false,
         },
       ],
-      createdBy: auditor._id,
     },
   ]);
 
   console.log('Created 6 sample projects');
   console.log('\nSeed complete!');
-  console.log('  Auditor:   auditor@company.com   / auditor123');
-  console.log('  Executive: executive@company.com / executive123');
+  console.log('\nNext steps:');
+  console.log('  1. Set BOOTSTRAP_AUDITOR_EMAIL in backend/.env to your @outdoorequipped.com or');
+  console.log('     @channelprecision.com email — this account will become the first auditor when');
+  console.log('     it signs in with Google.');
+  console.log('  2. After signing in, you can invite more users from the Invitations page.\n');
 
   await mongoose.disconnect();
   process.exit(0);

@@ -22,13 +22,6 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
-  const login = async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
-    return data.user;
-  };
-
   const loginWithGoogle = async (credential) => {
     const { data } = await api.post('/auth/google', { credential });
     localStorage.setItem('token', data.token);
@@ -42,7 +35,16 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, isAuditor: user?.role === 'auditor' }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        loginWithGoogle,
+        logout,
+        isAuditor: user?.role === 'auditor',
+        isCreator: user?.role === 'creator',
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
