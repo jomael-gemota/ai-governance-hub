@@ -5,7 +5,6 @@ import {
   FolderKanban,
   LogOut,
   User,
-  PlusCircle,
   Mail,
   Sun,
   Moon,
@@ -15,8 +14,8 @@ import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 
 const navItems = [
-  { to: '/projects', label: 'Projects', icon: FolderKanban, exact: true },
   { to: '/policy', label: 'AI Use Policy', icon: BookOpen, exact: true },
+  { to: '/projects', label: 'Projects', icon: FolderKanban, exact: true },
 ];
 
 export default function Layout({ children }) {
@@ -71,23 +70,6 @@ export default function Layout({ children }) {
             </NavLink>
           ))}
 
-          {isCreator && (
-            <>
-              <NavLink
-                to="/projects/new"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-600/30'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`
-                }
-              >
-                <PlusCircle className="w-4 h-4" />
-                New Project
-              </NavLink>
-            </>
-          )}
           {isAuditor && (
             <>
               <NavLink
