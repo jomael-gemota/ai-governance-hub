@@ -42,10 +42,46 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Serve built frontend in production
 if (process.env.NODE_ENV === 'production') {
-  const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
-  app.use(express.static(frontendDist));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(frontendDist, 'index.html'));
+  const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+  const indexHtmlPath = path.join(frontendDist, 'index.html');
+
+  console.log('[static] Serving frontend from:', frontendDist);
+  if (!fs.existsSync(indexHtmlPath)) {
+    console.error('[static] ERROR: index.html NOT found at', indexHtmlPath);
+    try {
+      const parent = path.dirname(frontendDist);
+      console.error('[static] Contents of', parent, ':', fs.readdirSync(parent));
+    } catch (e) {
+      console.error('[static] Cannot list parent dir:', e.message);
+    }
+  } else {
+    console.log('[static] Found index.html');
+    try {
+      const assetsDir = path.join(frontendDist, 'assets');
+      if (fs.existsSync(assetsDir)) {
+        console.log('[static] Assets:', fs.readdirSync(assetsDir).length, 'files');
+      }
+    } catch (_) {}
+  }
+
+  app.use(express.static(frontendDist, { index: false, maxAge: '1h' }));
+
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    // If the request looks like a static asset (has an extension) but wasn't
+    // served by express.static above, return 404 instead of HTML — otherwise
+    // the browser will try to parse index.html as CSS/JS and fail.
+    if (path.extname(req.path)) {
+      return res.status(404).send('Not found');
+    }
+    res.sendFile(indexHtmlPath, (err) => {
+      if (err) {
+        console.error('[static] sendFile error:', err.message);
+        if (!res.headersSent) res.status(500).send('Frontend not built');
+      }
+    });
   });
 }
 
