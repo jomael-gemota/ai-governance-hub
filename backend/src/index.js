@@ -16,20 +16,9 @@ const app = express();
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.APP_URL].filter(Boolean)
-  : ['http://localhost:5173'];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    if (process.env.NODE_ENV !== 'production') return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
+// The frontend is served by this same Express server, so same-origin requests
+// are the norm. JWT tokens handle auth — CORS does not need to be restrictive.
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(uploadsDir));
 
