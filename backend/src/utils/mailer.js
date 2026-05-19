@@ -24,34 +24,50 @@ function getTransporter() {
 
 function buildInvitationHtml({ inviterName, role, appUrl }) {
   const roleLabel = role === 'auditor' ? 'Auditor (full access)' : 'Creator (project owner)';
+  const logoUrl = `${appUrl.replace(/\/$/, '')}/favicon.svg`;
   return `
-  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-    <div style="background: #0f172a; color: #f1f5f9; padding: 32px; border-radius: 16px; border: 1px solid #1e293b;">
-      <div style="display: inline-block; background: #4f46e5; padding: 10px; border-radius: 12px; margin-bottom: 16px;">
-        <span style="color: white; font-size: 20px; font-weight: 700;">AGH</span>
+  <div style="margin:0; padding:32px 12px; background:#f1f5f9;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+      <div style="background: linear-gradient(140deg, #0f172a 0%, #1e293b 100%); color: #f8fafc; border-radius: 20px 20px 0 0; border: 1px solid #1e293b; border-bottom: 0; padding: 28px 28px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+          <img src="${logoUrl}" alt="AI Governance Hub" width="40" height="40" style="display:block; border:0; border-radius:10px; background:#4f46e5; padding:4px;" />
+          <div style="font-size:18px; font-weight:700; letter-spacing:0.2px;">AI Governance Hub</div>
+        </div>
+        <h1 style="margin: 0; font-size: 24px; line-height: 1.3; color: #ffffff;">You're Invited</h1>
+        <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: #cbd5e1;">
+          ${inviterName ? `<strong style="color:#ffffff">${inviterName}</strong> invited you` : 'You have been invited'} to join as
+          <strong style="color:#c4b5fd;"> ${roleLabel}</strong>.
+        </p>
       </div>
-      <h1 style="margin: 0 0 12px 0; font-size: 22px; color: #ffffff;">You've been invited to the AI Governance Hub</h1>
-      <p style="color: #cbd5e1; line-height: 1.6; margin: 0 0 16px 0;">
-        ${inviterName ? `<strong style="color:#fff">${inviterName}</strong> has invited you` : 'You have been invited'} to join the AI Governance Hub as a <strong style="color:#a5b4fc">${roleLabel}</strong>.
-      </p>
-      <p style="color: #cbd5e1; line-height: 1.6; margin: 0 0 24px 0;">
-        Sign in using your Google account (the same email this invitation was sent to) to accept and get started.
-      </p>
-      <a href="${appUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-        Accept Invitation & Sign In
-      </a>
-      <p style="color: #64748b; font-size: 13px; margin: 24px 0 0 0;">
-        Or copy this link: <span style="color:#94a3b8">${appUrl}</span>
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 20px 20px; padding: 28px;">
+        <p style="margin: 0; color: #334155; font-size: 15px; line-height: 1.7;">
+          Sign in with your Google account using the same email address this invitation was sent to.
+        </p>
+        <div style="margin: 24px 0;">
+          <a href="${appUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
+            Accept Invitation
+          </a>
+        </div>
+        <div style="margin-top: 20px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <p style="margin: 0 0 6px; color: #475569; font-size: 12px; font-weight: 700; letter-spacing: 0.2px; text-transform: uppercase;">
+            Direct Link
+          </p>
+          <a href="${appUrl}" style="color:#4f46e5; font-size: 13px; text-decoration:none; word-break: break-all;">${appUrl}</a>
+        </div>
+        <p style="margin: 18px 0 0; color: #64748b; font-size: 12px; line-height: 1.5;">
+          If you were not expecting this invitation, you can safely ignore this email.
+        </p>
+      </div>
+      <p style="text-align:center; margin: 14px 0 0; color:#94a3b8; font-size:11px;">
+        AI Governance Hub - Outdoor Equipped Service
       </p>
     </div>
-    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">
-      If you weren't expecting this, you can safely ignore the email.
-    </p>
-  </div>`;
+  </div>
+  `;
 }
 
 async function sendInvitationEmail({ to, inviterName, role }) {
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  const appUrl = process.env.APP_URL || 'https://ai-governance-hub.outdoorequippedservice.com';
   const subject = 'You\'re invited to the AI Governance Hub';
   const html = buildInvitationHtml({ inviterName, role, appUrl });
   const text = `${inviterName ? inviterName + ' has invited' : 'You have been invited'} you to the AI Governance Hub as ${role}. Sign in with Google at: ${appUrl}`;
