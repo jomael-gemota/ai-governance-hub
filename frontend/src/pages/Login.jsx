@@ -21,7 +21,7 @@ export default function Login() {
     setLoading(true);
     try {
       await loginWithGoogle(response.credential);
-      navigate('/projects');
+      navigate('/policy');
     } catch (err) {
       const data = err.response?.data;
       setError({

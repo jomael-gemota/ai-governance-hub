@@ -47,7 +47,7 @@ export default function App() {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Navigate to="/projects" replace />
+                    <Navigate to="/policy" replace />
                   </ProtectedRoute>
                 }
               />
@@ -106,7 +106,7 @@ export default function App() {
               }
             />
 
-                <Route path="*" element={<Navigate to="/projects" replace />} />
+                <Route path="*" element={<Navigate to="/policy" replace />} />
               </Routes>
             </BrowserRouter>
             <AppToaster />
