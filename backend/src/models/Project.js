@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
 const milestoneSchema = new mongoose.Schema(
   {
@@ -65,6 +66,31 @@ const proposedSolutionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const auditChecklistSchema = new mongoose.Schema(
+  {
+    dataPrivacy:    { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+    security:       { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+    biasFairness:   { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+    accuracy:       { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+    compliance:     { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+    explainability: { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
+  },
+  { _id: false }
+);
+
+const auditEntrySchema = new mongoose.Schema(
+  {
+    auditor:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    verdict:        { type: String, enum: ['approved', 'denied', 'needs-review'], required: true },
+    findings:       { type: String, default: '' },
+    conditions:     { type: String, default: '' },
+    nextReviewDate: { type: Date },
+    checklist:      { type: auditChecklistSchema, default: () => ({}) },
+    auditedAt:      { type: Date, default: Date.now },
+  },
+  { _id: true, timestamps: true }
+);
+
 const projectSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -92,6 +118,14 @@ const projectSchema = new mongoose.Schema(
     milestones: [milestoneSchema],
     incidents: [incidentSchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    auditStatus: {
+      type: String,
+      enum: ['not-submitted', 'pending', 'in-review', 'approved', 'denied', 'needs-review'],
+      default: 'not-submitted',
+    },
+    currentAuditor: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    auditSubmittedAt: { type: Date },
+    audits: { type: [auditEntrySchema], default: [] },
   },
   { timestamps: true }
 );

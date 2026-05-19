@@ -11,6 +11,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import ProjectForm from './pages/ProjectForm';
 import Invitations from './pages/Invitations';
 import Policy from './pages/Policy';
+import AuditQueue from './pages/AuditQueue';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Policy />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/audit-queue"
+              element={
+                <ProtectedRoute requiredRole="auditor">
+                  <AuditQueue />
                 </ProtectedRoute>
               }
             />

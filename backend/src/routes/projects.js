@@ -3,7 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const Project = require('../models/Project');
+const User = require('../models/User');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { sendAuditSubmittedEmail, sendAuditVerdictEmail } = require('../utils/mailer');
 
 const router = express.Router();
 const uploadsRoot = path.join(__dirname, '..', '..', 'uploads');
@@ -122,7 +124,10 @@ router.get('/', async (req, res) => {
 // GET /api/projects/:id - get single project
 router.get('/:id', async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id).populate('createdBy', 'name email');
+    const project = await Project.findById(req.params.id)
+      .populate('createdBy', 'name email')
+      .populate('currentAuditor', 'name email picture')
+      .populate('audits.auditor', 'name email picture');
     if (!project) return res.status(404).json({ message: 'Project not found' });
     res.json(project);
   } catch (err) {
@@ -260,6 +265,128 @@ router.patch('/:id/milestones/:milestoneId', requireRole('creator'), async (req,
     if (req.body.completed && !milestone.completedAt) milestone.completedAt = new Date();
     await project.save();
     res.json(milestone);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/projects/:id/audit/submit — creator submits project for audit
+router.post('/:id/audit/submit', requireRole('creator'), async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const blocked = ['in-review', 'approved'];
+    if (blocked.includes(project.auditStatus)) {
+      return res.status(400).json({ message: `Cannot submit — project is currently ${project.auditStatus}.` });
+    }
+
+    const isResubmission = ['denied', 'needs-review'].includes(project.auditStatus);
+    project.auditStatus = 'pending';
+    project.auditSubmittedAt = new Date();
+    project.currentAuditor = null;
+    await project.save();
+
+    // Notify all auditors (fire-and-forget — don't block the response)
+    User.find({ role: 'auditor' }).then((auditors) => {
+      const emails = auditors.map((a) => a.email).filter(Boolean);
+      if (emails.length) {
+        sendAuditSubmittedEmail({
+          to: emails,
+          projectName: project.name,
+          projectId: project._id,
+          submitterName: req.user.name,
+          isResubmission,
+        }).catch((err) => console.error('[mailer] audit-submitted email failed:', err.message));
+      }
+    }).catch((err) => console.error('[mailer] failed to fetch auditors:', err.message));
+
+    res.json({ auditStatus: project.auditStatus, auditSubmittedAt: project.auditSubmittedAt });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/projects/:id/audit/claim — auditor claims project for review
+router.post('/:id/audit/claim', requireRole('auditor'), async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (project.auditStatus !== 'pending') {
+      return res.status(400).json({ message: `Project is not pending audit (status: ${project.auditStatus}).` });
+    }
+
+    project.auditStatus = 'in-review';
+    project.currentAuditor = req.user._id;
+    await project.save();
+    await project.populate('currentAuditor', 'name email picture');
+    res.json({ auditStatus: project.auditStatus, currentAuditor: project.currentAuditor });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/projects/:id/audit/verdict — auditor submits verdict
+router.post('/:id/audit/verdict', requireRole('auditor'), async (req, res) => {
+  try {
+    const { verdict, findings, conditions, nextReviewDate, checklist } = req.body;
+    if (!verdict) return res.status(400).json({ message: 'Verdict is required.' });
+    if (!findings?.trim()) return res.status(400).json({ message: 'Findings/reasoning is required.' });
+
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (project.auditStatus !== 'in-review') {
+      return res.status(400).json({ message: 'Project must be in-review before submitting a verdict.' });
+    }
+
+    const entry = {
+      auditor: req.user._id,
+      verdict,
+      findings,
+      conditions: conditions || '',
+      nextReviewDate: nextReviewDate || undefined,
+      checklist: checklist || {},
+      auditedAt: new Date(),
+    };
+
+    project.audits.unshift(entry);
+    project.auditStatus = verdict;
+    project.currentAuditor = null;
+    await project.save();
+    await project.populate('audits.auditor', 'name email picture');
+    await project.populate('createdBy', 'name email');
+
+    // Notify creator (fire-and-forget)
+    const creatorEmail = project.createdBy?.email;
+    if (creatorEmail) {
+      sendAuditVerdictEmail({
+        to: creatorEmail,
+        projectName: project.name,
+        projectId: project._id,
+        auditorName: req.user.name,
+        verdict,
+        findings,
+        conditions: conditions || '',
+        nextReviewDate: nextReviewDate || null,
+      }).catch((err) => console.error('[mailer] audit-verdict email failed:', err.message));
+    }
+
+    res.json({ auditStatus: project.auditStatus, audit: project.audits[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/projects/audit-queue — auditor queue (pending + in-review)
+router.get('/audit-queue/list', requireRole('auditor'), async (req, res) => {
+  try {
+    const projects = await Project.find({ auditStatus: { $in: ['pending', 'in-review'] } })
+      .sort({ auditSubmittedAt: 1 })
+      .populate('createdBy', 'name email')
+      .populate('currentAuditor', 'name email picture');
+    res.json(projects);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

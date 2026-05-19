@@ -36,3 +36,30 @@ export function SeverityBadge({ severity }) {
     </span>
   );
 }
+
+const AUDIT_STYLES = {
+  'not-submitted': 'bg-slate-700/40 text-slate-400 border-slate-600/40',
+  pending:         'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  'in-review':     'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  approved:        'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  denied:          'bg-red-500/10 text-red-400 border-red-500/30',
+  'needs-review':  'bg-orange-500/10 text-orange-400 border-orange-500/30',
+};
+
+const AUDIT_LABELS = {
+  'not-submitted': 'Unaudited',
+  pending:         'Audit Pending',
+  'in-review':     'In Review',
+  approved:        'Approved',
+  denied:          'Denied',
+  'needs-review':  'Needs Review',
+};
+
+export function AuditBadge({ status }) {
+  const s = status || 'not-submitted';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs font-medium ${AUDIT_STYLES[s] || AUDIT_STYLES['not-submitted']}`}>
+      {AUDIT_LABELS[s] || s}
+    </span>
+  );
+}

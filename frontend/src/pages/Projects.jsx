@@ -9,7 +9,7 @@ import {
 import api from '../api/axios';
 import ProjectCard from '../components/ProjectCard';
 import { useAuth } from '../context/AuthContext';
-import { StatusBadge, RiskBadge } from '../components/StatusBadge';
+import { StatusBadge, RiskBadge, AuditBadge } from '../components/StatusBadge';
 
 const STATUSES = ['', 'planning', 'active', 'on-hold', 'completed', 'failed'];
 const RISKS = ['', 'low', 'medium', 'high', 'critical'];
@@ -36,6 +36,7 @@ function ProjectListRow({ project }) {
         </p>
         <StatusBadge status={project.status} />
         <RiskBadge risk={project.riskLevel} />
+        <AuditBadge status={project.auditStatus} />
         {unresolvedIncidents > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-red-400 shrink-0">
             <AlertTriangle className="w-3.5 h-3.5" />

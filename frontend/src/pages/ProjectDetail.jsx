@@ -6,6 +6,8 @@ import {
   User, Building, Mail, Code2, FileText, Image as ImageIcon,
   CircleHelp, Lightbulb, XCircle, Workflow, Clock3, Target, Wrench,
   Route, Users, Database, BadgeCheck, Timer, Eye, FileSearch, X,
+  ShieldCheck, ShieldX, ShieldAlert, ClipboardList, CheckCircle2,
+  XCircle as XCircleIcon, MinusCircle, Send, Gavel, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/axios';
@@ -122,11 +124,381 @@ function PreviewModal({ open, item, onClose }) {
   );
 }
 
+// ─── Audit helpers ────────────────────────────────────────────────────────────
+
+const AUDIT_STATUS_META = {
+  'not-submitted': { label: 'Not Submitted',  color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-700',   icon: ShieldAlert },
+  pending:         { label: 'Pending Review', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30', icon: ClipboardList },
+  'in-review':     { label: 'In Review',      color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/30',   icon: ShieldAlert },
+  approved:        { label: 'Approved',        color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/30', icon: ShieldCheck },
+  denied:          { label: 'Denied',          color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',     icon: ShieldX },
+  'needs-review':  { label: 'Needs Review',   color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30', icon: ShieldAlert },
+};
+
+function AuditStatusBadge({ status }) {
+  const meta = AUDIT_STATUS_META[status] || AUDIT_STATUS_META['not-submitted'];
+  const Icon = meta.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${meta.bg} ${meta.color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {meta.label}
+    </span>
+  );
+}
+
+const CHECKLIST_ITEMS = [
+  { key: 'dataPrivacy',    label: 'Data Privacy & Handling' },
+  { key: 'security',       label: 'Security & Access Controls' },
+  { key: 'biasFairness',   label: 'Bias / Fairness Evaluation' },
+  { key: 'accuracy',       label: 'Accuracy & Validation' },
+  { key: 'compliance',     label: 'Legal / Regulatory Compliance' },
+  { key: 'explainability', label: 'Explainability & Transparency' },
+];
+
+function ChecklistIcon({ value }) {
+  if (value === 'pass') return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
+  if (value === 'fail') return <XCircleIcon className="w-4 h-4 text-red-400" />;
+  return <MinusCircle className="w-4 h-4 text-slate-500" />;
+}
+
+function VerdictModal({ open, onClose, onSubmit, loading }) {
+  const [verdict, setVerdict]         = useState('approved');
+  const [findings, setFindings]       = useState('');
+  const [conditions, setConditions]   = useState('');
+  const [nextReview, setNextReview]   = useState('');
+  const [checklist, setChecklist]     = useState(
+    Object.fromEntries(CHECKLIST_ITEMS.map(({ key }) => [key, 'na']))
+  );
+
+  if (!open) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!findings.trim()) { toast.error('Findings are required.'); return; }
+    onSubmit({ verdict, findings, conditions, nextReviewDate: nextReview || undefined, checklist });
+  };
+
+  const cycleCheck = (key) => {
+    const order = ['na', 'pass', 'fail'];
+    setChecklist((prev) => {
+      const next = order[(order.indexOf(prev[key]) + 1) % order.length];
+      return { ...prev, [key]: next };
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-5">
+          <Gavel className="w-5 h-5 text-indigo-400" />
+          <h4 className="text-lg font-semibold text-white">Submit Audit Verdict</h4>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Verdict */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Verdict *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { v: 'approved',     label: 'Approve',  color: 'border-emerald-600/50 text-emerald-400 bg-emerald-500/10' },
+                { v: 'needs-review', label: 'Conditional', color: 'border-orange-600/50 text-orange-400 bg-orange-500/10' },
+                { v: 'denied',       label: 'Deny',     color: 'border-red-600/50 text-red-400 bg-red-500/10' },
+              ].map(({ v, label, color }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVerdict(v)}
+                  className={`py-2 rounded-lg border text-xs font-semibold transition ${
+                    verdict === v ? color : 'border-slate-700 text-slate-400 bg-slate-800/50 hover:bg-slate-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">
+              Audit Checklist <span className="normal-case text-slate-600">(click to cycle: N/A → Pass → Fail)</span>
+            </label>
+            <div className="space-y-1.5">
+              {CHECKLIST_ITEMS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => cycleCheck(key)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 bg-slate-800/60 border border-slate-700/60 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition text-left"
+                >
+                  <ChecklistIcon value={checklist[key]} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Findings */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">Findings / Reasoning *</label>
+            <textarea
+              value={findings}
+              onChange={(e) => setFindings(e.target.value)}
+              rows={4}
+              placeholder="Describe what you found during the audit..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            />
+          </div>
+
+          {/* Conditions (only for needs-review) */}
+          {verdict === 'needs-review' && (
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">Conditions to Address</label>
+              <textarea
+                value={conditions}
+                onChange={(e) => setConditions(e.target.value)}
+                rows={3}
+                placeholder="List specific items the creator must fix before re-submission..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              />
+            </div>
+          )}
+
+          {/* Next review date (only for approved) */}
+          {verdict === 'approved' && (
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">Next Review Date (optional)</label>
+              <input
+                type="date"
+                value={nextReview}
+                onChange={(e) => setNextReview(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white rounded-lg transition"
+            >
+              {loading ? 'Submitting...' : 'Submit Verdict'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AuditHistoryEntry({ entry, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const verdictMeta = {
+    approved:       { label: 'Approved',    color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
+    denied:         { label: 'Denied',      color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/30' },
+    'needs-review': { label: 'Needs Review',color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/30' },
+  }[entry.verdict] || {};
+
+  return (
+    <div className="border border-slate-700 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-800/60 hover:bg-slate-800 transition text-left"
+      >
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${verdictMeta.bg} ${verdictMeta.color}`}>
+          {verdictMeta.label}
+        </span>
+        <span className="text-xs text-slate-300 flex-1">
+          by <span className="text-white font-medium">{entry.auditor?.name || 'Unknown'}</span>
+          {' · '}{entry.auditedAt ? format(new Date(entry.auditedAt), 'MMM d, yyyy') : ''}
+        </span>
+        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 py-3 space-y-3 bg-slate-900/50">
+          {/* Checklist */}
+          {entry.checklist && (
+            <div className="grid grid-cols-2 gap-1.5">
+              {CHECKLIST_ITEMS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <ChecklistIcon value={entry.checklist[key] || 'na'} />
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+          {entry.findings && (
+            <div>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide mb-1">Findings</p>
+              <p className="text-xs text-slate-300 whitespace-pre-wrap">{entry.findings}</p>
+            </div>
+          )}
+          {entry.conditions && (
+            <div>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide mb-1">Conditions to Address</p>
+              <p className="text-xs text-orange-300 whitespace-pre-wrap">{entry.conditions}</p>
+            </div>
+          )}
+          {entry.nextReviewDate && (
+            <p className="text-xs text-slate-400">
+              Next review: <span className="text-slate-200">{format(new Date(entry.nextReviewDate), 'MMM d, yyyy')}</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
+  const qc = useQueryClient();
+  const [showVerdictModal, setShowVerdictModal] = useState(false);
+  const { auditStatus, audits = [], currentAuditor } = project;
+
+  const invalidate = () => {
+    qc.invalidateQueries(['project', project._id]);
+    if (onProjectUpdate) onProjectUpdate();
+  };
+
+  const submitMutation = useMutation({
+    mutationFn: () => api.post(`/projects/${project._id}/audit/submit`),
+    onSuccess: () => { toast.success('Submitted for audit'); invalidate(); },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to submit'),
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: () => api.post(`/projects/${project._id}/audit/claim`),
+    onSuccess: () => { toast.success('Project claimed for review'); invalidate(); },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to claim'),
+  });
+
+  const verdictMutation = useMutation({
+    mutationFn: (data) => api.post(`/projects/${project._id}/audit/verdict`, data),
+    onSuccess: () => { toast.success('Verdict submitted'); setShowVerdictModal(false); invalidate(); },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to submit verdict'),
+  });
+
+  const canSubmit  = isCreator && ['not-submitted', 'denied', 'needs-review'].includes(auditStatus);
+  const canClaim   = isAuditor && auditStatus === 'pending';
+  const canVerdict = isAuditor && auditStatus === 'in-review';
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-indigo-400" />
+          <h3 className="text-white font-semibold">Audit</h3>
+        </div>
+        <AuditStatusBadge status={auditStatus} />
+      </div>
+
+      {/* Current auditor banner */}
+      {auditStatus === 'in-review' && currentAuditor && (
+        <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 mb-4">
+          {currentAuditor.picture
+            ? <img src={currentAuditor.picture} alt="" className="w-5 h-5 rounded-full" />
+            : <User className="w-4 h-4 text-blue-400" />}
+          <p className="text-xs text-blue-300">
+            Currently being reviewed by <span className="font-semibold text-blue-200">{currentAuditor.name}</span>
+          </p>
+        </div>
+      )}
+
+      {/* Creator actions */}
+      {canSubmit && (
+        <div className="mb-4">
+          <p className="text-xs text-slate-400 mb-2">
+            {auditStatus === 'not-submitted'
+              ? 'Submit this project for an auditor to review.'
+              : 'Address the auditor\'s feedback then re-submit for another review.'}
+          </p>
+          <button
+            onClick={() => submitMutation.mutate()}
+            disabled={submitMutation.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm rounded-lg transition"
+          >
+            <Send className="w-4 h-4" />
+            {submitMutation.isPending ? 'Submitting…' : 'Submit for Audit'}
+          </button>
+        </div>
+      )}
+
+      {/* Auditor actions */}
+      {canClaim && (
+        <div className="mb-4">
+          <p className="text-xs text-slate-400 mb-2">Claim this project to begin your review.</p>
+          <button
+            onClick={() => claimMutation.mutate()}
+            disabled={claimMutation.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm rounded-lg transition"
+          >
+            <ClipboardList className="w-4 h-4" />
+            {claimMutation.isPending ? 'Claiming…' : 'Claim for Review'}
+          </button>
+        </div>
+      )}
+
+      {canVerdict && (
+        <div className="mb-4">
+          <p className="text-xs text-slate-400 mb-2">You have claimed this project. Submit your verdict when ready.</p>
+          <button
+            onClick={() => setShowVerdictModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition"
+          >
+            <Gavel className="w-4 h-4" />
+            Submit Verdict
+          </button>
+        </div>
+      )}
+
+      {/* Audit history */}
+      {audits.length > 0 && (
+        <div>
+          <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Audit History ({audits.length})</p>
+          <div className="space-y-2">
+            {audits.map((entry, i) => (
+              <AuditHistoryEntry key={entry._id || i} entry={entry} defaultOpen={i === 0} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {audits.length === 0 && !canSubmit && !canClaim && !canVerdict && (
+        <p className="text-sm text-slate-500">No audit history yet.</p>
+      )}
+
+      <VerdictModal
+        open={showVerdictModal}
+        onClose={() => setShowVerdictModal(false)}
+        onSubmit={(data) => verdictMutation.mutate(data)}
+        loading={verdictMutation.isPending}
+      />
+    </div>
+  );
+}
+
+// ─── ProjectDetail ─────────────────────────────────────────────────────────────
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { isCreator } = useAuth();
+  const { isCreator, isAuditor } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
 
@@ -353,6 +725,13 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+
+      {/* Audit */}
+      <AuditSection
+        project={project}
+        isCreator={isCreator}
+        isAuditor={isAuditor}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Milestones */}

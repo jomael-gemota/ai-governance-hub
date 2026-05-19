@@ -9,6 +9,7 @@ import {
   Sun,
   Moon,
   BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
@@ -72,6 +73,19 @@ export default function Layout({ children }) {
 
           {isAuditor && (
             <>
+              <NavLink
+                to="/audit-queue"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-600/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`
+                }
+              >
+                <ClipboardList className="w-4 h-4" />
+                Audit Queue
+              </NavLink>
               <NavLink
                 to="/invitations"
                 className={({ isActive }) =>
