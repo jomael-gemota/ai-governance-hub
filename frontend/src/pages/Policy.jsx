@@ -6,7 +6,6 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import Layout from '../components/Layout';
 import {
   FileText, Upload, Trash2, ChevronLeft, ChevronRight,
   AlertCircle, Loader2, BookOpen,
@@ -130,8 +129,7 @@ export default function Policy() {
   const textMuted = isDark ? '#64748b' : '#94a3b8';
 
   return (
-    <Layout>
-      <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-5xl mx-auto space-y-5">
 
         {/* ── Page header ── */}
         <div className="flex items-start gap-3">
@@ -334,7 +332,6 @@ export default function Policy() {
             )}
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }
