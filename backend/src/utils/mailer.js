@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 
 let transporter = null;
 let smtpConfigured = false;
+const PROD_APP_URL = 'https://ai-governance-hub.outdoorequippedservice.com';
 
 function getTransporter() {
   if (transporter) return transporter;
@@ -66,8 +67,24 @@ function buildInvitationHtml({ inviterName, role, appUrl }) {
   `;
 }
 
+function resolveAppUrl() {
+  const rawUrl = (process.env.APP_URL || '').trim();
+  if (!rawUrl) return PROD_APP_URL;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+      return PROD_APP_URL;
+    }
+    return rawUrl;
+  } catch {
+    return PROD_APP_URL;
+  }
+}
+
 async function sendInvitationEmail({ to, inviterName, role }) {
-  const appUrl = process.env.APP_URL || 'https://ai-governance-hub.outdoorequippedservice.com';
+  const appUrl = resolveAppUrl();
   const subject = 'You\'re invited to the AI Governance Hub';
   const html = buildInvitationHtml({ inviterName, role, appUrl });
   const text = `${inviterName ? inviterName + ' has invited' : 'You have been invited'} you to the AI Governance Hub as ${role}. Sign in with Google at: ${appUrl}`;
