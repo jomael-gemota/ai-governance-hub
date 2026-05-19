@@ -145,11 +145,16 @@ export default function Invitations() {
           </button>
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          Only <span className="text-slate-300">@{ALLOWED_DOMAINS.join('</span> and <span className="text-slate-300">@')}</span> emails can be invited.
-          <span className="text-slate-400 ml-2">
-            <span className="text-indigo-400">Creator</span>: can register and edit projects.
-            <span className="text-indigo-400 ml-2">Auditor</span>: full access including invitations.
-          </span>
+          Only{' '}
+          {ALLOWED_DOMAINS.map((d, i) => (
+            <span key={d}>
+              <span className="text-slate-300">@{d}</span>
+              {i < ALLOWED_DOMAINS.length - 1 && ' and '}
+            </span>
+          ))}{' '}
+          emails can be invited.{' '}
+          <span className="text-indigo-400">Creator</span>: can register and edit projects.{' '}
+          <span className="text-indigo-400 ml-1">Auditor</span>: full access including invitations.
         </p>
       </form>
 
