@@ -1,8 +1,11 @@
+const path = require('path');
 const nodemailer = require('nodemailer');
 
 let transporter = null;
 let smtpConfigured = false;
 const PROD_APP_URL = 'https://ai-governance-hub.outdoorequippedservice.com';
+const LOGO_PATH = path.join(__dirname, '..', 'assets', 'email-logo.png');
+const LOGO_CID = 'agh-logo';
 
 function getTransporter() {
   if (transporter) return transporter;
@@ -32,8 +35,8 @@ function buildInvitationHtml({ inviterName, role, appUrl }) {
         <td style="background: #0f172a; color: #f8fafc; border-radius: 20px 20px 0 0; border: 1px solid #1e293b; border-bottom: 0; padding: 28px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 22px;">
             <tr>
-              <td valign="middle" style="background:#4f46e5; width:44px; height:44px; border-radius:10px; text-align:center; font-family: Arial, sans-serif; color:#ffffff; font-size:24px; font-weight:700; line-height:44px;">
-                &#10003;
+              <td valign="middle" style="width:44px; height:44px;">
+                <img src="cid:${LOGO_CID}" alt="AI Governance Hub" width="44" height="44" style="display:block; border:0; border-radius:10px;" />
               </td>
               <td valign="middle" style="padding-left:12px; font-size:18px; font-weight:700; color:#ffffff; letter-spacing:0.2px;">
                 AI Governance Hub
@@ -109,7 +112,21 @@ async function sendInvitationEmail({ to, inviterName, role }) {
   }
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  await t.sendMail({ from, to, subject, html, text });
+  await t.sendMail({
+    from,
+    to,
+    subject,
+    html,
+    text,
+    attachments: [
+      {
+        filename: 'logo.png',
+        path: LOGO_PATH,
+        cid: LOGO_CID,
+        contentDisposition: 'inline',
+      },
+    ],
+  });
   return { sent: true };
 }
 
