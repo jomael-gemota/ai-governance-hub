@@ -10,6 +10,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectForm from './pages/ProjectForm';
 import Invitations from './pages/Invitations';
+import Policy from './pages/Policy';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +87,15 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+
+            <Route
+              path="/policy"
+              element={
+                <ProtectedRoute>
+                  <Policy />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/invitations"

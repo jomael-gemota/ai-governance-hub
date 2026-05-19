@@ -9,11 +9,15 @@ import {
   Mail,
   Sun,
   Moon,
+  BookOpen,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 
-const navItems = [{ to: '/projects', label: 'Projects', icon: FolderKanban, exact: true }];
+const navItems = [
+  { to: '/projects', label: 'Projects', icon: FolderKanban, exact: true },
+  { to: '/policy', label: 'AI Use Policy', icon: BookOpen, exact: true },
+];
 
 export default function Layout({ children }) {
   const { user, logout, isAuditor, isCreator } = useAuth();
