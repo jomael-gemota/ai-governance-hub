@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Filter, PlusCircle, FolderOpen, LayoutGrid, List, ChevronRight, AlertTriangle, User } from 'lucide-react';
+import {
+  Search, Filter, PlusCircle, FolderOpen, LayoutGrid, List, ChevronRight,
+  AlertTriangle, User, Building2, Mail, CalendarDays, CalendarCheck2,
+  DollarSign, Paperclip,
+} from 'lucide-react';
 import api from '../api/axios';
 import ProjectCard from '../components/ProjectCard';
 import { useAuth } from '../context/AuthContext';
@@ -10,40 +14,97 @@ import { StatusBadge, RiskBadge } from '../components/StatusBadge';
 const STATUSES = ['', 'planning', 'active', 'on-hold', 'completed', 'failed'];
 const RISKS = ['', 'low', 'medium', 'high', 'critical'];
 
+const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+
 function ProjectListRow({ project }) {
   const unresolvedIncidents = project.incidents?.filter((i) => !i.resolved).length || 0;
-  const completedMilestones = project.milestones?.filter((m) => m.completed).length || 0;
-  const totalMilestones = project.milestones?.length || 0;
+  const attachmentCount = (project.media?.length || 0) + (project.documents?.length || 0);
+  const startDateStr = formatDate(project.startDate);
+  const endDateStr = formatDate(project.targetEndDate);
+  const hasTechOrAttachments = project.techStack?.length > 0 || attachmentCount > 0;
 
   return (
     <Link
       to={`/projects/${project._id}`}
-      className="group flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 hover:border-indigo-600/40 hover:bg-slate-900/80 transition"
+      className="group block bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 hover:border-indigo-600/40 hover:bg-slate-900/80 transition"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <p className="text-sm font-semibold text-white truncate group-hover:text-indigo-400 transition">
-            {project.name}
-          </p>
-          <StatusBadge status={project.status} />
-          <RiskBadge risk={project.riskLevel} />
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-          <span className="inline-flex items-center gap-1">
-            <User className="w-3.5 h-3.5" />
-            {project.owner?.name || 'No owner'}
+      {/* Title row */}
+      <div className="flex items-center gap-2 mb-2">
+        <p className="text-sm font-semibold text-white truncate group-hover:text-indigo-400 transition flex-1 min-w-0">
+          {project.name}
+        </p>
+        <StatusBadge status={project.status} />
+        <RiskBadge risk={project.riskLevel} />
+        {unresolvedIncidents > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs text-red-400 shrink-0">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {unresolvedIncidents} incident{unresolvedIncidents !== 1 ? 's' : ''}
           </span>
-          {project.owner?.department && <span>{project.owner.department}</span>}
-          {totalMilestones > 0 && <span>{completedMilestones}/{totalMilestones} milestones</span>}
-          {unresolvedIncidents > 0 && (
-            <span className="inline-flex items-center gap-1 text-red-400">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {unresolvedIncidents} open incident{unresolvedIncidents > 1 ? 's' : ''}
+        )}
+        <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition shrink-0" />
+      </div>
+
+      {/* Metadata row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-2">
+        <span className="inline-flex items-center gap-1">
+          <User className="w-3.5 h-3.5 shrink-0" />
+          {project.owner?.name || 'No owner'}
+        </span>
+        {project.owner?.department && (
+          <span className="inline-flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5 shrink-0" />
+            {project.owner.department}
+          </span>
+        )}
+        {project.owner?.email && (
+          <span className="inline-flex items-center gap-1">
+            <Mail className="w-3.5 h-3.5 shrink-0" />
+            {project.owner.email}
+          </span>
+        )}
+        {startDateStr && (
+          <span className="inline-flex items-center gap-1">
+            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+            {startDateStr}
+          </span>
+        )}
+        {endDateStr && (
+          <span className="inline-flex items-center gap-1">
+            <CalendarCheck2 className="w-3.5 h-3.5 shrink-0" />
+            {endDateStr}
+          </span>
+        )}
+        {project.budget > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <DollarSign className="w-3.5 h-3.5 shrink-0" />
+            {project.budget.toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      {/* Tech stack + attachments row */}
+      {hasTechOrAttachments && (
+        <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
+          {project.techStack?.slice(0, 5).map((t) => (
+            <span
+              key={t}
+              className="px-1.5 py-0.5 bg-slate-800 border border-slate-700/60 rounded text-[11px] text-slate-300 font-mono"
+            >
+              {t}
+            </span>
+          ))}
+          {project.techStack?.length > 5 && (
+            <span className="text-[11px] text-slate-500">+{project.techStack.length - 5} more</span>
+          )}
+          {attachmentCount > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-800/60 border border-slate-700/60 rounded px-1.5 py-0.5">
+              <Paperclip className="w-3 h-3" />
+              {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
             </span>
           )}
         </div>
-      </div>
-      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition shrink-0" />
+      )}
     </Link>
   );
 }
@@ -54,7 +115,7 @@ export default function Projects() {
   const [status, setStatus] = useState('');
   const [riskLevel, setRiskLevel] = useState('');
   const [page, setPage] = useState(1);
-  const [view, setView] = useState(() => localStorage.getItem('projects-view-mode') || 'grid');
+  const [view, setView] = useState(() => localStorage.getItem('projects-view-mode') || 'list');
 
   useEffect(() => {
     localStorage.setItem('projects-view-mode', view);
