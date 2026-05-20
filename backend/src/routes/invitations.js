@@ -32,7 +32,7 @@ router.post(
   '/',
   [
     body('email').isEmail().withMessage('Valid email required').toLowerCase(),
-    body('role').isIn(['auditor', 'creator']).withMessage('Role must be auditor or creator'),
+    body('role').isIn(['admin', 'auditor', 'creator']).withMessage('Role must be admin, auditor, or creator'),
   ],
   async (req, res) => {
     const errors = validationResult(req);

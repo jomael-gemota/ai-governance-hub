@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const invitationSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    role: { type: String, enum: ['auditor', 'creator'], required: true },
+    role: { type: String, enum: ['admin', 'auditor', 'creator'], required: true },
     status: { type: String, enum: ['pending', 'accepted', 'revoked'], default: 'pending' },
     invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     invitedByName: { type: String },

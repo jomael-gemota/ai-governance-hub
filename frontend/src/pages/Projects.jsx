@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Search, Filter, PlusCircle, FolderOpen, LayoutGrid, List, ChevronRight,
   AlertTriangle, User, Building2, Mail, CalendarDays, CalendarCheck2,
-  DollarSign, Paperclip,
+  DollarSign, Paperclip, Trash2, XCircle,
 } from 'lucide-react';
 import api from '../api/axios';
 import ProjectCard from '../components/ProjectCard';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, RiskBadge, AuditBadge } from '../components/StatusBadge';
+import toast from 'react-hot-toast';
 
 const STATUSES = ['', 'planning', 'active', 'on-hold', 'completed', 'failed'];
 const RISKS = ['', 'low', 'medium', 'high', 'critical'];
@@ -17,7 +18,49 @@ const RISKS = ['', 'low', 'medium', 'high', 'critical'];
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
-function ProjectListRow({ project }) {
+function DeleteConfirmModal({ project, onCancel, onConfirm, loading }) {
+  if (!project) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-[2px] px-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-red-500/15 text-red-400 shrink-0">
+            <XCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-lg font-semibold text-white">Delete this project?</h4>
+            <p className="text-sm text-slate-400 mt-1">
+              <span className="text-white font-medium">"{project.name}"</span> will be permanently removed along with all its files, milestones, and incidents.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-lg transition"
+          >
+            {loading ? 'Deleting...' : 'Delete Project'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectListRow({ project, isAdmin, onDelete }) {
   const unresolvedIncidents = project.incidents?.filter((i) => !i.resolved).length || 0;
   const attachmentCount = (project.media?.length || 0) + (project.documents?.length || 0);
   const startDateStr = formatDate(project.startDate);
@@ -25,98 +68,114 @@ function ProjectListRow({ project }) {
   const hasTechOrAttachments = project.techStack?.length > 0 || attachmentCount > 0;
 
   return (
-    <Link
-      to={`/projects/${project._id}`}
-      className="group block bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 hover:border-indigo-600/40 hover:bg-slate-900/80 transition"
-    >
-      {/* Title row */}
-      <div className="flex items-center gap-2 mb-2">
-        <p className="text-sm font-semibold text-white truncate group-hover:text-indigo-400 transition flex-1 min-w-0">
-          {project.name}
-        </p>
-        <StatusBadge status={project.status} />
-        <RiskBadge risk={project.riskLevel} />
-        <AuditBadge status={project.auditStatus} />
-        {unresolvedIncidents > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-red-400 shrink-0">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {unresolvedIncidents} incident{unresolvedIncidents !== 1 ? 's' : ''}
-          </span>
-        )}
-        <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition shrink-0" />
-      </div>
-
-      {/* Metadata row */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-2">
-        <span className="inline-flex items-center gap-1">
-          <User className="w-3.5 h-3.5 shrink-0" />
-          {project.owner?.name || 'No owner'}
-        </span>
-        {project.owner?.department && (
-          <span className="inline-flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5 shrink-0" />
-            {project.owner.department}
-          </span>
-        )}
-        {project.owner?.email && (
-          <span className="inline-flex items-center gap-1">
-            <Mail className="w-3.5 h-3.5 shrink-0" />
-            {project.owner.email}
-          </span>
-        )}
-        {startDateStr && (
-          <span className="inline-flex items-center gap-1">
-            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-            {startDateStr}
-          </span>
-        )}
-        {endDateStr && (
-          <span className="inline-flex items-center gap-1">
-            <CalendarCheck2 className="w-3.5 h-3.5 shrink-0" />
-            {endDateStr}
-          </span>
-        )}
-        {project.budget > 0 && (
-          <span className="inline-flex items-center gap-1">
-            <DollarSign className="w-3.5 h-3.5 shrink-0" />
-            {project.budget.toLocaleString()}
-          </span>
-        )}
-      </div>
-
-      {/* Tech stack + attachments row */}
-      {hasTechOrAttachments && (
-        <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
-          {project.techStack?.slice(0, 5).map((t) => (
-            <span
-              key={t}
-              className="px-1.5 py-0.5 bg-slate-800 border border-slate-700/60 rounded text-[11px] text-slate-300 font-mono"
-            >
-              {t}
+    <div className="group flex items-stretch bg-slate-900 border border-slate-800 rounded-xl hover:border-indigo-600/40 hover:bg-slate-900/80 transition">
+      {/* Clickable content area */}
+      <Link
+        to={`/projects/${project._id}`}
+        className="flex-1 min-w-0 px-4 py-3"
+      >
+        {/* Title row */}
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-sm font-semibold text-white truncate group-hover:text-indigo-400 transition flex-1 min-w-0">
+            {project.name}
+          </p>
+          <StatusBadge status={project.status} />
+          <RiskBadge risk={project.riskLevel} />
+          <AuditBadge status={project.auditStatus} />
+          {unresolvedIncidents > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs text-red-400 shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {unresolvedIncidents} incident{unresolvedIncidents !== 1 ? 's' : ''}
             </span>
-          ))}
-          {project.techStack?.length > 5 && (
-            <span className="text-[11px] text-slate-500">+{project.techStack.length - 5} more</span>
           )}
-          {attachmentCount > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-800/60 border border-slate-700/60 rounded px-1.5 py-0.5">
-              <Paperclip className="w-3 h-3" />
-              {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+          <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition shrink-0" />
+        </div>
+
+        {/* Metadata row */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-2">
+          <span className="inline-flex items-center gap-1">
+            <User className="w-3.5 h-3.5 shrink-0" />
+            {project.owner?.name || 'No owner'}
+          </span>
+          {project.owner?.department && (
+            <span className="inline-flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              {project.owner.department}
+            </span>
+          )}
+          {project.owner?.email && (
+            <span className="inline-flex items-center gap-1">
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              {project.owner.email}
+            </span>
+          )}
+          {startDateStr && (
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+              {startDateStr}
+            </span>
+          )}
+          {endDateStr && (
+            <span className="inline-flex items-center gap-1">
+              <CalendarCheck2 className="w-3.5 h-3.5 shrink-0" />
+              {endDateStr}
+            </span>
+          )}
+          {project.budget > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+              {project.budget.toLocaleString()}
             </span>
           )}
         </div>
+
+        {/* Tech stack + attachments row */}
+        {hasTechOrAttachments && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-800">
+            {project.techStack?.slice(0, 5).map((t) => (
+              <span
+                key={t}
+                className="px-1.5 py-0.5 bg-slate-800 border border-slate-700/60 rounded text-[11px] text-slate-300 font-mono"
+              >
+                {t}
+              </span>
+            ))}
+            {project.techStack?.length > 5 && (
+              <span className="text-[11px] text-slate-500">+{project.techStack.length - 5} more</span>
+            )}
+            {attachmentCount > 0 && (
+              <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-800/60 border border-slate-700/60 rounded px-1.5 py-0.5">
+                <Paperclip className="w-3 h-3" />
+                {attachmentCount} attachment{attachmentCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+      </Link>
+
+      {/* Admin-only delete button */}
+      {isAdmin && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(project); }}
+          className="shrink-0 px-3 flex items-center border-l border-slate-800 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-r-xl transition"
+          title="Delete project"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       )}
-    </Link>
+    </div>
   );
 }
 
 export default function Projects() {
-  const { isCreator } = useAuth();
+  const { isCreator, isAdmin } = useAuth();
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [riskLevel, setRiskLevel] = useState('');
   const [page, setPage] = useState(1);
   const [view, setView] = useState(() => localStorage.getItem('projects-view-mode') || 'list');
+  const [confirmDelete, setConfirmDelete] = useState(null); // { _id, name }
 
   useEffect(() => {
     localStorage.setItem('projects-view-mode', view);
@@ -130,6 +189,17 @@ export default function Projects() {
         .get('/projects', { params: { search: search || undefined, status: status || undefined, riskLevel: riskLevel || undefined, page, limit: 12 } })
         .then((r) => r.data),
     keepPreviousData: true,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/projects/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries(['projects']);
+      qc.invalidateQueries(['stats']);
+      toast.success('Project deleted');
+      setConfirmDelete(null);
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete project'),
   });
 
   const handleSearch = (e) => {
@@ -224,7 +294,7 @@ export default function Projects() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Project listing */}
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -242,13 +312,23 @@ export default function Projects() {
           {view === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {data?.projects?.map((project) => (
-                <ProjectCard key={project._id} project={project} />
+                <ProjectCard
+                  key={project._id}
+                  project={project}
+                  isAdmin={isAdmin}
+                  onDelete={setConfirmDelete}
+                />
               ))}
             </div>
           ) : (
             <div className="space-y-2.5">
               {data?.projects?.map((project) => (
-                <ProjectListRow key={project._id} project={project} />
+                <ProjectListRow
+                  key={project._id}
+                  project={project}
+                  isAdmin={isAdmin}
+                  onDelete={setConfirmDelete}
+                />
               ))}
             </div>
           )}
@@ -277,6 +357,13 @@ export default function Projects() {
           )}
         </>
       )}
+
+      <DeleteConfirmModal
+        project={confirmDelete}
+        loading={deleteMutation.isPending}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => deleteMutation.mutate(confirmDelete._id)}
+      />
     </div>
   );
 }

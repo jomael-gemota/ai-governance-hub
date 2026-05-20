@@ -34,6 +34,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const isAdmin   = user?.role === 'admin';
+  // Admins inherit all creator and auditor capabilities
+  const isAuditor = user?.role === 'auditor' || isAdmin;
+  const isCreator = user?.role === 'creator' || isAdmin;
+
   return (
     <AuthContext.Provider
       value={{
@@ -41,8 +46,9 @@ export function AuthProvider({ children }) {
         loading,
         loginWithGoogle,
         logout,
-        isAuditor: user?.role === 'auditor',
-        isCreator: user?.role === 'creator',
+        isAdmin,
+        isAuditor,
+        isCreator,
       }}
     >
       {children}

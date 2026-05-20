@@ -233,8 +233,8 @@ router.post('/:id/incidents', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to log incidents on this project' });
     }
@@ -253,8 +253,8 @@ router.patch('/:id/incidents/:incidentId', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to update incidents on this project' });
     }
@@ -277,8 +277,8 @@ router.post('/:id/milestones', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to add milestones to this project' });
     }
@@ -297,8 +297,8 @@ router.patch('/:id/milestones/:milestoneId', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to update milestones on this project' });
     }
@@ -324,8 +324,8 @@ router.post('/:id/risks', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to add risks to this project' });
     }
@@ -344,8 +344,8 @@ router.delete('/:id/risks/:riskId', async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const isCreator = req.user.role === 'creator';
-    const isAuditor = req.user.role === 'auditor';
+    const isCreator = ['creator', 'admin'].includes(req.user.role);
+    const isAuditor = ['auditor', 'admin'].includes(req.user.role);
     if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
       return res.status(403).json({ message: 'Not authorized to remove risks from this project' });
     }

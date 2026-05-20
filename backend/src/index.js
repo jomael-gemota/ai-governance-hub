@@ -12,6 +12,7 @@ const projectRoutes = require('./routes/projects');
 const statsRoutes = require('./routes/stats');
 const invitationRoutes = require('./routes/invitations');
 const policyRoutes = require('./routes/policy');
+const userRoutes = require('./routes/users');
 
 const app = express();
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -28,6 +29,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/policy', policyRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

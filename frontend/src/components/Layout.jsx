@@ -10,6 +10,7 @@ import {
   Moon,
   BookOpen,
   ClipboardList,
+  Crown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
@@ -20,7 +21,7 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { user, logout, isAuditor, isCreator } = useAuth();
+  const { user, logout, isAuditor, isAdmin } = useAuth();
   const { resolvedTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -126,7 +127,14 @@ export default function Layout({ children }) {
             )}
             <div className="min-w-0">
               <p className="text-sm text-white font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+              {isAdmin ? (
+                <p className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                  <Crown className="w-3 h-3" />
+                  Administrator
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+              )}
             </div>
           </div>
           <button
