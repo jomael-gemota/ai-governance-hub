@@ -398,7 +398,7 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
   const canVerdict = isAuditor && auditStatus === 'in-review';
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-indigo-400" />
@@ -535,7 +535,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate(-1)}
@@ -565,183 +565,194 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <h1 className="text-2xl font-bold text-white">{project.name}</h1>
-          <div className="flex gap-2 shrink-0">
-            <StatusBadge status={project.status} />
-            <RiskBadge risk={project.riskLevel} />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_630px] gap-6 items-start">
 
-        {project.description && <p className="text-slate-400 text-sm mb-3 leading-relaxed">{project.description}</p>}
+        {/* ── LEFT COLUMN: main content ── */}
+        <div className="flex flex-col gap-4">
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
-          <SummaryItem icon={User} label="Project Owner" value={project.owner?.name} />
-          <SummaryItem icon={Building} label="Department" value={project.owner?.department} />
-          <SummaryItem icon={Mail} label="Contact" value={project.owner?.email} />
-          <SummaryItem icon={DollarSign} label="Budget" value={project.budget > 0 ? `$${project.budget.toLocaleString()}` : ''} />
-          <SummaryItem icon={Calendar} label="Start Date" value={project.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : ''} />
-          <SummaryItem icon={Calendar} label="Target End" value={project.targetEndDate ? format(new Date(project.targetEndDate), 'MMM d, yyyy') : ''} />
-          <SummaryItem icon={User} label="Registered By" value={project.createdBy?.name} />
-        </div>
-      </div>
-
-      {/* Tech Stack */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <SectionHeader icon={Code2} title="Tech Stack" />
-        {project.techStack?.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {project.techStack.map((tech) => (
-              <span key={tech} className="bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 text-xs px-2.5 py-1 rounded-lg">
-                {tech}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-slate-500 text-sm">No tech stack specified.</p>
-        )}
-      </div>
-
-      {/* Notes */}
-      {project.notes && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-          <SectionHeader icon={FileText} title="Notes" />
-          <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-wrap break-words">{project.notes}</p>
-        </div>
-      )}
-
-      {/* Problem */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <SectionHeader icon={CircleHelp} title="Identify the Problem" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ContentBlock
-            icon={Workflow}
-            label="What is the manual process today? What is currently being done?"
-            value={project.problemDefinition?.currentProcess}
-          />
-          <ContentBlock
-            icon={Clock3}
-            label="How long does this manual process currently take?"
-            value={project.problemDefinition?.currentTiming}
-          />
-          <div className="md:col-span-2">
-            <ContentBlock
-              icon={Target}
-              label="What does the ideal outcome look like?"
-              value={project.problemDefinition?.idealOutcome}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Solution */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-4">
-        <SectionHeader icon={Lightbulb} title="Propose a Solution" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="md:col-span-2">
-            <ContentBlock
-              icon={Wrench}
-              label="What tool or approach do you want to use (backend and frontend)?"
-              value={project.proposedSolution?.implementationApproach}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <ContentBlock
-              icon={Route}
-              label="What specific task or workflow will this affect?"
-              value={project.proposedSolution?.impactedWorkflow}
-            />
-          </div>
-          <ContentBlock
-            icon={Users}
-            label="Who on the team or other department will use it?"
-            value={project.proposedSolution?.targetUsers}
-          />
-          <ContentBlock
-            icon={Database}
-            label="What data sources will the tool access?"
-            value={project.proposedSolution?.dataSources}
-          />
-          <ContentBlock
-            icon={BadgeCheck}
-            label="How will the accuracy of the results be verified?"
-            value={project.proposedSolution?.validationMethod}
-          />
-          <ContentBlock
-            icon={Timer}
-            label="How much time will be saved with this new tool?"
-            value={project.proposedSolution?.estimatedTimeSavings}
-          />
-        </div>
-      </div>
-
-      {/* Attachments */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <SectionHeader icon={ImageIcon} title="Media or Screenshots" />
-          {project.media?.length ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {project.media.map((item, idx) => (
-                <button
-                  key={`${item.url}-${idx}`}
-                  onClick={() => setPreviewItem({ type: 'image', url: item.url, name: item.originalName })}
-                  className="group relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-slate-800"
-                >
-                  <img src={item.url} alt={item.originalName} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                  <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/45 transition flex items-center justify-center">
-                    <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition" />
-                  </div>
-                </button>
-              ))}
+          {/* Header */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+              <div className="flex gap-2 shrink-0">
+                <StatusBadge status={project.status} />
+                <RiskBadge risk={project.riskLevel} />
+              </div>
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">No screenshots uploaded.</p>
-          )}
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <SectionHeader icon={FileText} title="Documentation" />
-          {project.documents?.length ? (
-            <ul className="space-y-2">
-              {project.documents.map((item, idx) => (
-                <li key={`${item.url}-${idx}`} className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-                  <span className="text-sm text-slate-200 truncate inline-flex items-center gap-2">
-                    <FileSearch className="w-4 h-4 text-indigo-400 shrink-0" />
-                    {item.originalName}
+
+            {project.description && <p className="text-slate-400 text-sm mb-3 leading-relaxed">{project.description}</p>}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
+              <SummaryItem icon={User} label="Project Owner" value={project.owner?.name} />
+              <SummaryItem icon={Building} label="Department" value={project.owner?.department} />
+              <SummaryItem icon={Mail} label="Contact" value={project.owner?.email} />
+              <SummaryItem icon={DollarSign} label="Budget" value={project.budget > 0 ? `$${project.budget.toLocaleString()}` : ''} />
+              <SummaryItem icon={Calendar} label="Start Date" value={project.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : ''} />
+              <SummaryItem icon={Calendar} label="Target End" value={project.targetEndDate ? format(new Date(project.targetEndDate), 'MMM d, yyyy') : ''} />
+              <SummaryItem icon={User} label="Registered By" value={project.createdBy?.name} />
+            </div>
+          </div>
+
+          {/* Tech Stack */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <SectionHeader icon={Code2} title="Tech Stack" />
+            {project.techStack?.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {project.techStack.map((tech) => (
+                  <span key={tech} className="bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 text-xs px-2.5 py-1 rounded-lg">
+                    {tech}
                   </span>
-                  <button
-                    onClick={() => setPreviewItem({ type: 'pdf', url: item.url, name: item.originalName })}
-                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 transition shrink-0"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    Preview
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-slate-500 text-sm">No documentation uploaded.</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">No tech stack specified.</p>
+            )}
+          </div>
+
+          {/* Notes */}
+          {project.notes && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <SectionHeader icon={FileText} title="Notes" />
+              <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-wrap break-words">{project.notes}</p>
+            </div>
           )}
+
+          {/* Problem */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <SectionHeader icon={CircleHelp} title="Identify the Problem" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ContentBlock
+                icon={Workflow}
+                label="What is the manual process today? What is currently being done?"
+                value={project.problemDefinition?.currentProcess}
+              />
+              <ContentBlock
+                icon={Clock3}
+                label="How long does this manual process currently take?"
+                value={project.problemDefinition?.currentTiming}
+              />
+              <div className="md:col-span-2">
+                <ContentBlock
+                  icon={Target}
+                  label="What does the ideal outcome look like?"
+                  value={project.problemDefinition?.idealOutcome}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Solution */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <SectionHeader icon={Lightbulb} title="Propose a Solution" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <ContentBlock
+                  icon={Wrench}
+                  label="What tool or approach do you want to use (backend and frontend)?"
+                  value={project.proposedSolution?.implementationApproach}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <ContentBlock
+                  icon={Route}
+                  label="What specific task or workflow will this affect?"
+                  value={project.proposedSolution?.impactedWorkflow}
+                />
+              </div>
+              <ContentBlock
+                icon={Users}
+                label="Who on the team or other department will use it?"
+                value={project.proposedSolution?.targetUsers}
+              />
+              <ContentBlock
+                icon={Database}
+                label="What data sources will the tool access?"
+                value={project.proposedSolution?.dataSources}
+              />
+              <ContentBlock
+                icon={BadgeCheck}
+                label="How will the accuracy of the results be verified?"
+                value={project.proposedSolution?.validationMethod}
+              />
+              <ContentBlock
+                icon={Timer}
+                label="How much time will be saved with this new tool?"
+                value={project.proposedSolution?.estimatedTimeSavings}
+              />
+            </div>
+          </div>
+
         </div>
-      </div>
 
-      {/* Audit */}
-      <AuditSection
-        project={project}
-        isCreator={isCreator}
-        isAuditor={isAuditor}
-      />
+        {/* ── RIGHT COLUMN: audit, media, docs, milestones, incidents ── */}
+        <div className="flex flex-col gap-4 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent">
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Milestones */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <MilestoneTracker project={project} />
-        </div>
+          {/* Audit */}
+          <AuditSection
+            project={project}
+            isCreator={isCreator}
+            isAuditor={isAuditor}
+          />
 
-        {/* Incidents */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-          <IncidentLog project={project} />
+          {/* Media or Screenshots */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <SectionHeader icon={ImageIcon} title="Media or Screenshots" />
+            {project.media?.length ? (
+              <div className="grid grid-cols-2 gap-3">
+                {project.media.map((item, idx) => (
+                  <button
+                    key={`${item.url}-${idx}`}
+                    onClick={() => setPreviewItem({ type: 'image', url: item.url, name: item.originalName })}
+                    className="group relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-slate-800"
+                  >
+                    <img src={item.url} alt={item.originalName} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                    <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/45 transition flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">No screenshots uploaded.</p>
+            )}
+          </div>
+
+          {/* Documentation */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <SectionHeader icon={FileText} title="Documentation" />
+            {project.documents?.length ? (
+              <ul className="space-y-2">
+                {project.documents.map((item, idx) => (
+                  <li key={`${item.url}-${idx}`} className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                    <span className="text-sm text-slate-200 truncate inline-flex items-center gap-2">
+                      <FileSearch className="w-4 h-4 text-indigo-400 shrink-0" />
+                      {item.originalName}
+                    </span>
+                    <button
+                      onClick={() => setPreviewItem({ type: 'pdf', url: item.url, name: item.originalName })}
+                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 transition shrink-0"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Preview
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-500 text-sm">No documentation uploaded.</p>
+            )}
+          </div>
+
+          {/* Milestones */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <MilestoneTracker project={project} />
+          </div>
+
+          {/* Incidents */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <IncidentLog project={project} />
+          </div>
+
         </div>
       </div>
       <DeleteProjectModal
