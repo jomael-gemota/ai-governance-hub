@@ -38,21 +38,25 @@ export function SeverityBadge({ severity }) {
 }
 
 const AUDIT_STYLES = {
-  'not-submitted': 'bg-slate-700/40 text-slate-400 border-slate-600/40',
-  pending:         'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-  'in-review':     'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  approved:        'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  denied:          'bg-red-500/10 text-red-400 border-red-500/30',
-  'needs-review':  'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  'not-submitted':   'bg-slate-700/40 text-slate-400 border-slate-600/40',
+  pending:           'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  'in-review':       'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  'trial-run':       'bg-violet-500/10 text-violet-400 border-violet-500/30',
+  'trial-completed': 'bg-teal-500/10 text-teal-400 border-teal-500/30',
+  approved:          'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  denied:            'bg-red-500/10 text-red-400 border-red-500/30',
+  'needs-review':    'bg-orange-500/10 text-orange-400 border-orange-500/30',
 };
 
 const AUDIT_LABELS = {
-  'not-submitted': 'Unaudited',
-  pending:         'Audit Pending',
-  'in-review':     'In Review',
-  approved:        'Approved',
-  denied:          'Denied',
-  'needs-review':  'Needs Review',
+  'not-submitted':   'Unaudited',
+  pending:           'Audit Pending',
+  'in-review':       'In Review',
+  'trial-run':       'Trial Run',
+  'trial-completed': 'Trial Completed',
+  approved:          'Approved',
+  denied:            'Denied',
+  'needs-review':    'Needs Review',
 };
 
 export function AuditBadge({ status }) {

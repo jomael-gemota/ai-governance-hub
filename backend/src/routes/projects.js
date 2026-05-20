@@ -5,7 +5,12 @@ const multer = require('multer');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const { authenticate, requireRole } = require('../middleware/auth');
-const { sendAuditSubmittedEmail, sendAuditVerdictEmail } = require('../utils/mailer');
+const {
+  sendAuditSubmittedEmail,
+  sendAuditVerdictEmail,
+  sendTrialRunStartedEmail,
+  sendTrialRunCompletedEmail,
+} = require('../utils/mailer');
 
 const router = express.Router();
 const uploadsRoot = path.join(__dirname, '..', '..', 'uploads');
@@ -130,6 +135,25 @@ router.get('/:id', async (req, res) => {
       .populate('currentAuditor', 'name email picture')
       .populate('audits.auditor', 'name email picture');
     if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    // Option A: auto-transition trial-run → trial-completed on read once the window has elapsed
+    if (project.auditStatus === 'trial-run' && project.trialEndsAt && new Date() >= project.trialEndsAt) {
+      project.auditStatus = 'trial-completed';
+      await project.save();
+
+      // Notify all auditors that this project is ready for final review (fire-and-forget)
+      User.find({ role: 'auditor' }).then((auditors) => {
+        const emails = auditors.map((a) => a.email).filter(Boolean);
+        if (emails.length) {
+          sendTrialRunCompletedEmail({
+            to: emails,
+            projectName: project.name,
+            projectId: project._id,
+          }).catch((err) => console.error('[mailer] trial-completed email failed:', err.message));
+        }
+      }).catch((err) => console.error('[mailer] failed to fetch auditors for trial-completed:', err.message));
+    }
+
     res.json(project);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -343,7 +367,7 @@ router.post('/:id/audit/submit', requireRole('creator'), async (req, res) => {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    const blocked = ['in-review', 'approved'];
+    const blocked = ['in-review', 'approved', 'trial-run', 'trial-completed'];
     if (blocked.includes(project.auditStatus)) {
       return res.status(400).json({ message: `Cannot submit — project is currently ${project.auditStatus}.` });
     }
@@ -394,10 +418,10 @@ router.post('/:id/audit/claim', requireRole('auditor'), async (req, res) => {
   }
 });
 
-// POST /api/projects/:id/audit/verdict — auditor submits verdict
+// POST /api/projects/:id/audit/verdict — auditor submits verdict (approved/denied/needs-review/trial-run)
 router.post('/:id/audit/verdict', requireRole('auditor'), async (req, res) => {
   try {
-    const { verdict, findings, conditions, nextReviewDate, checklist } = req.body;
+    const { verdict, findings, conditions, nextReviewDate, checklist, trialDurationDays } = req.body;
     if (!verdict) return res.status(400).json({ message: 'Verdict is required.' });
     if (!findings?.trim()) return res.status(400).json({ message: 'Findings/reasoning is required.' });
 
@@ -406,6 +430,101 @@ router.post('/:id/audit/verdict', requireRole('auditor'), async (req, res) => {
 
     if (project.auditStatus !== 'in-review') {
       return res.status(400).json({ message: 'Project must be in-review before submitting a verdict.' });
+    }
+
+    // Guard: direct approval requires a completed trial run first
+    if (verdict === 'approved') {
+      if (!project.trialEndsAt) {
+        return res.status(400).json({
+          message: 'This project must complete a trial run before it can be approved. Use "Initiate Trial Run" instead.',
+        });
+      }
+      if (new Date() < project.trialEndsAt) {
+        const remaining = Math.ceil((project.trialEndsAt - new Date()) / 86400000);
+        return res.status(400).json({
+          message: `Trial run has not completed yet — ${remaining} day(s) remaining. Use the final verdict once the trial ends.`,
+        });
+      }
+    }
+
+    // Handle trial-run verdict
+    if (verdict === 'trial-run') {
+      const days = Number(trialDurationDays);
+      if (![30, 60].includes(days)) {
+        return res.status(400).json({ message: 'Trial duration must be 30 or 60 days.' });
+      }
+      const start = new Date();
+      project.trialStartedAt = start;
+      project.trialDurationDays = days;
+      project.trialEndsAt = new Date(start.getTime() + days * 86400000);
+    }
+
+    const entry = {
+      auditor: req.user._id,
+      verdict,
+      findings,
+      conditions: conditions || '',
+      nextReviewDate: nextReviewDate || undefined,
+      trialDurationDays: verdict === 'trial-run' ? Number(trialDurationDays) : undefined,
+      checklist: checklist || {},
+      auditedAt: new Date(),
+    };
+
+    project.audits.unshift(entry);
+    project.auditStatus = verdict;
+    project.currentAuditor = null;
+    await project.save();
+    await project.populate('audits.auditor', 'name email picture');
+    await project.populate('createdBy', 'name email');
+
+    // Notify creator (fire-and-forget)
+    const creatorEmail = project.createdBy?.email;
+    if (creatorEmail) {
+      if (verdict === 'trial-run') {
+        sendTrialRunStartedEmail({
+          to: creatorEmail,
+          projectName: project.name,
+          projectId: project._id,
+          auditorName: req.user.name,
+          trialDurationDays: Number(trialDurationDays),
+          trialEndsAt: project.trialEndsAt,
+          findings,
+        }).catch((err) => console.error('[mailer] trial-run-started email failed:', err.message));
+      } else {
+        sendAuditVerdictEmail({
+          to: creatorEmail,
+          projectName: project.name,
+          projectId: project._id,
+          auditorName: req.user.name,
+          verdict,
+          findings,
+          conditions: conditions || '',
+          nextReviewDate: nextReviewDate || null,
+        }).catch((err) => console.error('[mailer] audit-verdict email failed:', err.message));
+      }
+    }
+
+    res.json({ auditStatus: project.auditStatus, audit: project.audits[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/projects/:id/audit/final-verdict — final approval after trial run completes
+router.post('/:id/audit/final-verdict', requireRole('auditor'), async (req, res) => {
+  try {
+    const { verdict, findings, conditions, nextReviewDate, checklist } = req.body;
+    if (!verdict) return res.status(400).json({ message: 'Verdict is required.' });
+    if (!['approved', 'denied'].includes(verdict)) {
+      return res.status(400).json({ message: 'Final verdict must be "approved" or "denied".' });
+    }
+    if (!findings?.trim()) return res.status(400).json({ message: 'Findings/reasoning is required.' });
+
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (project.auditStatus !== 'trial-completed') {
+      return res.status(400).json({ message: 'Final verdict can only be submitted after the trial run has completed.' });
     }
 
     const entry = {
@@ -437,7 +556,7 @@ router.post('/:id/audit/verdict', requireRole('auditor'), async (req, res) => {
         findings,
         conditions: conditions || '',
         nextReviewDate: nextReviewDate || null,
-      }).catch((err) => console.error('[mailer] audit-verdict email failed:', err.message));
+      }).catch((err) => console.error('[mailer] final-verdict email failed:', err.message));
     }
 
     res.json({ auditStatus: project.auditStatus, audit: project.audits[0] });
@@ -446,10 +565,12 @@ router.post('/:id/audit/verdict', requireRole('auditor'), async (req, res) => {
   }
 });
 
-// GET /api/projects/audit-queue — auditor queue (pending + in-review)
+// GET /api/projects/audit-queue — auditor queue (pending + in-review + trial-run + trial-completed)
 router.get('/audit-queue/list', requireRole('auditor'), async (req, res) => {
   try {
-    const projects = await Project.find({ auditStatus: { $in: ['pending', 'in-review'] } })
+    const projects = await Project.find({
+      auditStatus: { $in: ['pending', 'in-review', 'trial-run', 'trial-completed'] },
+    })
       .sort({ auditSubmittedAt: 1 })
       .populate('createdBy', 'name email')
       .populate('currentAuditor', 'name email picture');

@@ -8,6 +8,7 @@ import {
   Route, Users, Database, BadgeCheck, Timer, Eye, FileSearch, X,
   ShieldCheck, ShieldX, ShieldAlert, ClipboardList, CheckCircle2,
   XCircle as XCircleIcon, MinusCircle, Send, Gavel, ChevronDown, ChevronUp, AlertTriangle, Plus,
+  FlaskConical, Flag,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/axios';
@@ -127,12 +128,14 @@ function PreviewModal({ open, item, onClose }) {
 // ─── Audit helpers ────────────────────────────────────────────────────────────
 
 const AUDIT_STATUS_META = {
-  'not-submitted': { label: 'Not Submitted',  color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-700',   icon: ShieldAlert },
-  pending:         { label: 'Pending Review', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30', icon: ClipboardList },
-  'in-review':     { label: 'In Review',      color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/30',   icon: ShieldAlert },
-  approved:        { label: 'Approved',        color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/30', icon: ShieldCheck },
-  denied:          { label: 'Denied',          color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',     icon: ShieldX },
-  'needs-review':  { label: 'Needs Review',   color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30', icon: ShieldAlert },
+  'not-submitted':   { label: 'Not Submitted',       color: 'text-slate-400',  bg: 'bg-slate-800/60 border-slate-700',        icon: ShieldAlert },
+  pending:           { label: 'Pending Review',       color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30',    icon: ClipboardList },
+  'in-review':       { label: 'In Review',            color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/30',        icon: ShieldAlert },
+  'trial-run':       { label: 'Trial Run',            color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/30',    icon: FlaskConical },
+  'trial-completed': { label: 'Trial Completed',      color: 'text-teal-400',   bg: 'bg-teal-500/10 border-teal-500/30',        icon: Flag },
+  approved:          { label: 'Approved',             color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/30',  icon: ShieldCheck },
+  denied:            { label: 'Denied',               color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',          icon: ShieldX },
+  'needs-review':    { label: 'Needs Review',         color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30',    icon: ShieldAlert },
 };
 
 function AuditStatusBadge({ status }) {
@@ -162,11 +165,12 @@ function ChecklistIcon({ value }) {
 }
 
 function VerdictModal({ open, onClose, onSubmit, loading }) {
-  const [verdict, setVerdict]         = useState('approved');
-  const [findings, setFindings]       = useState('');
-  const [conditions, setConditions]   = useState('');
-  const [nextReview, setNextReview]   = useState('');
-  const [checklist, setChecklist]     = useState(
+  const [verdict, setVerdict]               = useState('trial-run');
+  const [findings, setFindings]             = useState('');
+  const [conditions, setConditions]         = useState('');
+  const [nextReview, setNextReview]         = useState('');
+  const [trialDurationDays, setTrialDays]   = useState(30);
+  const [checklist, setChecklist]           = useState(
     Object.fromEntries(CHECKLIST_ITEMS.map(({ key }) => [key, 'na']))
   );
 
@@ -175,7 +179,7 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!findings.trim()) { toast.error('Findings are required.'); return; }
-    onSubmit({ verdict, findings, conditions, nextReviewDate: nextReview || undefined, checklist });
+    onSubmit({ verdict, findings, conditions, nextReviewDate: nextReview || undefined, checklist, trialDurationDays });
   };
 
   const cycleCheck = (key) => {
@@ -204,11 +208,11 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
           {/* Verdict */}
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Verdict *</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { v: 'approved',     label: 'Approve',  color: 'border-emerald-600/50 text-emerald-400 bg-emerald-500/10' },
-                { v: 'needs-review', label: 'Conditional', color: 'border-orange-600/50 text-orange-400 bg-orange-500/10' },
-                { v: 'denied',       label: 'Deny',     color: 'border-red-600/50 text-red-400 bg-red-500/10' },
+                { v: 'trial-run',    label: 'Initiate Trial Run', color: 'border-violet-600/50 text-violet-400 bg-violet-500/10' },
+                { v: 'needs-review', label: 'Conditional',        color: 'border-orange-600/50 text-orange-400 bg-orange-500/10' },
+                { v: 'denied',       label: 'Deny',               color: 'border-red-600/50 text-red-400 bg-red-500/10' },
               ].map(({ v, label, color }) => (
                 <button
                   key={v}
@@ -222,7 +226,35 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
                 </button>
               ))}
             </div>
+            {verdict === 'trial-run' && (
+              <p className="mt-2 text-[11px] text-violet-300/70 leading-relaxed">
+                The project will enter a mandatory observation period. Final approval cannot be granted until the trial ends and a second review is completed.
+              </p>
+            )}
           </div>
+
+          {/* Trial duration (only for trial-run) */}
+          {verdict === 'trial-run' && (
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Trial Duration *</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[30, 60].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setTrialDays(days)}
+                    className={`py-2.5 rounded-lg border text-sm font-semibold transition ${
+                      trialDurationDays === days
+                        ? 'border-violet-600/50 text-violet-300 bg-violet-500/15'
+                        : 'border-slate-700 text-slate-400 bg-slate-800/50 hover:bg-slate-800'
+                    }`}
+                  >
+                    {days} Days
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Checklist */}
           <div>
@@ -246,12 +278,18 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
 
           {/* Findings */}
           <div>
-            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">Findings / Reasoning *</label>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">
+              {verdict === 'trial-run' ? 'Observations / Rationale for Trial *' : 'Findings / Reasoning *'}
+            </label>
             <textarea
               value={findings}
               onChange={(e) => setFindings(e.target.value)}
               rows={4}
-              placeholder="Describe what you found during the audit..."
+              placeholder={
+                verdict === 'trial-run'
+                  ? 'Describe why a trial run is needed and what should be observed during the period...'
+                  : 'Describe what you found during the audit...'
+              }
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
@@ -270,6 +308,128 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
             </div>
           )}
 
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-4 py-2 text-sm disabled:opacity-60 text-white rounded-lg transition ${
+                verdict === 'trial-run'
+                  ? 'bg-violet-600 hover:bg-violet-500'
+                  : 'bg-indigo-600 hover:bg-indigo-500'
+              }`}
+            >
+              {loading ? 'Submitting...' : verdict === 'trial-run' ? 'Start Trial Run' : 'Submit Verdict'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function FinalVerdictModal({ open, onClose, onSubmit, loading, trialDurationDays }) {
+  const [verdict, setVerdict]       = useState('approved');
+  const [findings, setFindings]     = useState('');
+  const [nextReview, setNextReview] = useState('');
+  const [checklist, setChecklist]   = useState(
+    Object.fromEntries(CHECKLIST_ITEMS.map(({ key }) => [key, 'na']))
+  );
+
+  if (!open) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!findings.trim()) { toast.error('Findings are required.'); return; }
+    onSubmit({ verdict, findings, nextReviewDate: nextReview || undefined, checklist });
+  };
+
+  const cycleCheck = (key) => {
+    const order = ['na', 'pass', 'fail'];
+    setChecklist((prev) => {
+      const next = order[(order.indexOf(prev[key]) + 1) % order.length];
+      return { ...prev, [key]: next };
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-slate-900 border border-teal-700/40 rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Flag className="w-5 h-5 text-teal-400" />
+          <h4 className="text-lg font-semibold text-white">Submit Final Verdict</h4>
+        </div>
+        <p className="text-xs text-teal-300/70 mb-5">
+          The {trialDurationDays}-day trial run has completed. This is the final, official approval decision.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Final verdict: only approve or deny */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Final Decision *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { v: 'approved', label: 'Officially Approve', color: 'border-emerald-600/50 text-emerald-400 bg-emerald-500/10' },
+                { v: 'denied',   label: 'Deny',               color: 'border-red-600/50 text-red-400 bg-red-500/10' },
+              ].map(({ v, label, color }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVerdict(v)}
+                  className={`py-2.5 rounded-lg border text-xs font-semibold transition ${
+                    verdict === v ? color : 'border-slate-700 text-slate-400 bg-slate-800/50 hover:bg-slate-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">
+              Final Checklist <span className="normal-case text-slate-600">(click to cycle: N/A → Pass → Fail)</span>
+            </label>
+            <div className="space-y-1.5">
+              {CHECKLIST_ITEMS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => cycleCheck(key)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 bg-slate-800/60 border border-slate-700/60 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition text-left"
+                >
+                  <ChecklistIcon value={checklist[key]} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Findings */}
+          <div>
+            <label className="text-xs text-slate-400 uppercase tracking-wide mb-1.5 block">Final Findings *</label>
+            <textarea
+              value={findings}
+              onChange={(e) => setFindings(e.target.value)}
+              rows={4}
+              placeholder="Summarize observations from the trial period and justify your final decision..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
+          </div>
+
           {/* Next review date (only for approved) */}
           {verdict === 'approved' && (
             <div>
@@ -278,7 +438,7 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
                 type="date"
                 value={nextReview}
                 onChange={(e) => setNextReview(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
           )}
@@ -294,9 +454,11 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white rounded-lg transition"
+              className={`px-4 py-2 text-sm disabled:opacity-60 text-white rounded-lg transition ${
+                verdict === 'approved' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
+              }`}
             >
-              {loading ? 'Submitting...' : 'Submit Verdict'}
+              {loading ? 'Submitting...' : verdict === 'approved' ? 'Officially Approve' : 'Deny Project'}
             </button>
           </div>
         </form>
@@ -308,9 +470,10 @@ function VerdictModal({ open, onClose, onSubmit, loading }) {
 function AuditHistoryEntry({ entry, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const verdictMeta = {
-    approved:       { label: 'Approved',    color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
-    denied:         { label: 'Denied',      color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/30' },
-    'needs-review': { label: 'Needs Review',color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/30' },
+    approved:        { label: 'Approved',         color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
+    denied:          { label: 'Denied',           color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/30' },
+    'needs-review':  { label: 'Needs Review',     color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/30' },
+    'trial-run':     { label: 'Trial Run Started',color: 'text-violet-400',  bg: 'bg-violet-500/10 border-violet-500/30' },
   }[entry.verdict] || {};
 
   return (
@@ -331,6 +494,13 @@ function AuditHistoryEntry({ entry, defaultOpen = false }) {
 
       {open && (
         <div className="px-4 py-3 space-y-3 bg-slate-900/50">
+          {/* Trial run duration badge */}
+          {entry.verdict === 'trial-run' && entry.trialDurationDays && (
+            <div className="flex items-center gap-2 text-xs text-violet-300">
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>{entry.trialDurationDays}-day trial run initiated</span>
+            </div>
+          )}
           {/* Checklist */}
           {entry.checklist && (
             <div className="grid grid-cols-2 gap-1.5">
@@ -344,7 +514,9 @@ function AuditHistoryEntry({ entry, defaultOpen = false }) {
           )}
           {entry.findings && (
             <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wide mb-1">Findings</p>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wide mb-1">
+                {entry.verdict === 'trial-run' ? 'Observations / Rationale' : 'Findings'}
+              </p>
               <p className="text-xs text-slate-300 whitespace-pre-wrap">{entry.findings}</p>
             </div>
           )}
@@ -365,9 +537,53 @@ function AuditHistoryEntry({ entry, defaultOpen = false }) {
   );
 }
 
+function TrialRunBanner({ project }) {
+  const { trialStartedAt, trialEndsAt, trialDurationDays, auditStatus } = project;
+  if (!trialStartedAt || !trialEndsAt) return null;
+
+  const now = new Date();
+  const start = new Date(trialStartedAt);
+  const end = new Date(trialEndsAt);
+  const totalMs = end - start;
+  const elapsedMs = Math.min(now - start, totalMs);
+  const progressPct = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+  const daysRemaining = Math.max(0, Math.ceil((end - now) / 86400000));
+  const isComplete = auditStatus === 'trial-completed';
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 mb-4 ${
+      isComplete
+        ? 'bg-teal-500/10 border-teal-500/30'
+        : 'bg-violet-500/10 border-violet-500/30'
+    }`}>
+      <div className="flex items-center gap-2 mb-2">
+        <FlaskConical className={`w-4 h-4 shrink-0 ${isComplete ? 'text-teal-400' : 'text-violet-400'}`} />
+        <p className={`text-xs font-semibold ${isComplete ? 'text-teal-300' : 'text-violet-300'}`}>
+          {isComplete ? `${trialDurationDays}-Day Trial Run Completed` : `${trialDurationDays}-Day Trial Run In Progress`}
+        </p>
+      </div>
+      <div className="w-full bg-slate-800 rounded-full h-1.5 mb-2">
+        <div
+          className={`h-1.5 rounded-full transition-all ${isComplete ? 'bg-teal-400' : 'bg-violet-500'}`}
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-slate-400">
+        <span>Started {format(start, 'MMM d, yyyy')}</span>
+        {isComplete
+          ? <span className="text-teal-400 font-medium">Ready for final review</span>
+          : <span className="text-violet-300">{daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining</span>
+        }
+        <span>Ends {format(end, 'MMM d, yyyy')}</span>
+      </div>
+    </div>
+  );
+}
+
 function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
   const qc = useQueryClient();
-  const [showVerdictModal, setShowVerdictModal] = useState(false);
+  const [showVerdictModal, setShowVerdictModal]           = useState(false);
+  const [showFinalVerdictModal, setShowFinalVerdictModal] = useState(false);
   const { auditStatus, audits = [], currentAuditor } = project;
 
   const invalidate = () => {
@@ -393,9 +609,16 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to submit verdict'),
   });
 
-  const canSubmit  = isCreator && ['not-submitted', 'denied', 'needs-review'].includes(auditStatus);
-  const canClaim   = isAuditor && auditStatus === 'pending';
-  const canVerdict = isAuditor && auditStatus === 'in-review';
+  const finalVerdictMutation = useMutation({
+    mutationFn: (data) => api.post(`/projects/${project._id}/audit/final-verdict`, data),
+    onSuccess: () => { toast.success('Final verdict submitted'); setShowFinalVerdictModal(false); invalidate(); },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to submit final verdict'),
+  });
+
+  const canSubmit       = isCreator && ['not-submitted', 'denied', 'needs-review'].includes(auditStatus);
+  const canClaim        = isAuditor && auditStatus === 'pending';
+  const canVerdict      = isAuditor && auditStatus === 'in-review';
+  const canFinalVerdict = isAuditor && auditStatus === 'trial-completed';
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
@@ -406,6 +629,11 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
         </div>
         <AuditStatusBadge status={auditStatus} />
       </div>
+
+      {/* Trial run progress banner */}
+      {(auditStatus === 'trial-run' || auditStatus === 'trial-completed') && (
+        <TrialRunBanner project={project} />
+      )}
 
       {/* Current auditor banner */}
       {auditStatus === 'in-review' && currentAuditor && (
@@ -466,6 +694,32 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
         </div>
       )}
 
+      {/* Final verdict action — only available after trial-completed */}
+      {canFinalVerdict && (
+        <div className="mb-4">
+          <p className="text-xs text-slate-400 mb-2">
+            The trial period has ended. Review the observations and issue the official approval decision.
+          </p>
+          <button
+            onClick={() => setShowFinalVerdictModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm rounded-lg transition"
+          >
+            <Flag className="w-4 h-4" />
+            Submit Final Verdict
+          </button>
+        </div>
+      )}
+
+      {/* Informational notice while trial is still running */}
+      {isAuditor && auditStatus === 'trial-run' && (
+        <div className="mb-4 flex items-start gap-2 bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-2">
+          <FlaskConical className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-violet-300">
+            Approval is locked until the trial run completes. You will be notified when it is ready for final review.
+          </p>
+        </div>
+      )}
+
       {/* Audit history */}
       {audits.length > 0 && (
         <div>
@@ -478,7 +732,7 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
         </div>
       )}
 
-      {audits.length === 0 && !canSubmit && !canClaim && !canVerdict && (
+      {audits.length === 0 && !canSubmit && !canClaim && !canVerdict && !canFinalVerdict && auditStatus !== 'trial-run' && (
         <p className="text-sm text-slate-500">No audit history yet.</p>
       )}
 
@@ -487,6 +741,13 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
         onClose={() => setShowVerdictModal(false)}
         onSubmit={(data) => verdictMutation.mutate(data)}
         loading={verdictMutation.isPending}
+      />
+      <FinalVerdictModal
+        open={showFinalVerdictModal}
+        onClose={() => setShowFinalVerdictModal(false)}
+        onSubmit={(data) => finalVerdictMutation.mutate(data)}
+        loading={finalVerdictMutation.isPending}
+        trialDurationDays={project.trialDurationDays}
       />
     </div>
   );

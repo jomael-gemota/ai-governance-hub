@@ -92,13 +92,14 @@ const auditChecklistSchema = new mongoose.Schema(
 
 const auditEntrySchema = new mongoose.Schema(
   {
-    auditor:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    verdict:        { type: String, enum: ['approved', 'denied', 'needs-review'], required: true },
-    findings:       { type: String, default: '' },
-    conditions:     { type: String, default: '' },
-    nextReviewDate: { type: Date },
-    checklist:      { type: auditChecklistSchema, default: () => ({}) },
-    auditedAt:      { type: Date, default: Date.now },
+    auditor:           { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    verdict:           { type: String, enum: ['approved', 'denied', 'needs-review', 'trial-run'], required: true },
+    findings:          { type: String, default: '' },
+    conditions:        { type: String, default: '' },
+    nextReviewDate:    { type: Date },
+    trialDurationDays: { type: Number },
+    checklist:         { type: auditChecklistSchema, default: () => ({}) },
+    auditedAt:         { type: Date, default: Date.now },
   },
   { _id: true, timestamps: true }
 );
@@ -133,11 +134,14 @@ const projectSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     auditStatus: {
       type: String,
-      enum: ['not-submitted', 'pending', 'in-review', 'approved', 'denied', 'needs-review'],
+      enum: ['not-submitted', 'pending', 'in-review', 'trial-run', 'trial-completed', 'approved', 'denied', 'needs-review'],
       default: 'not-submitted',
     },
     currentAuditor: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     auditSubmittedAt: { type: Date },
+    trialStartedAt: { type: Date },
+    trialDurationDays: { type: Number, enum: [30, 60] },
+    trialEndsAt: { type: Date },
     audits: { type: [auditEntrySchema], default: [] },
   },
   { timestamps: true }
