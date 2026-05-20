@@ -73,8 +73,7 @@ function AddIncidentForm({ projectId, onClose }) {
   );
 }
 
-function IncidentItem({ incident, projectId }) {
-  const { isCreator } = useAuth();
+function IncidentItem({ incident, projectId, canEdit }) {
   const [expanded, setExpanded] = useState(false);
   const qc = useQueryClient();
 
@@ -108,7 +107,7 @@ function IncidentItem({ incident, projectId }) {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isCreator && !incident.resolved && (
+          {canEdit && !incident.resolved && (
             <button
               onClick={() => resolveMutation.mutate({ resolved: true })}
               disabled={resolveMutation.isPending}
@@ -132,7 +131,8 @@ function IncidentItem({ incident, projectId }) {
 }
 
 export default function IncidentLog({ project }) {
-  const { isCreator } = useAuth();
+  const { isCreator, isAuditor } = useAuth();
+  const canEdit = isCreator || (isAuditor && project.auditStatus === 'in-review');
   const [showForm, setShowForm] = useState(false);
 
   const openIncidents = project.incidents?.filter((i) => !i.resolved) || [];
@@ -150,7 +150,7 @@ export default function IncidentLog({ project }) {
             </span>
           )}
         </div>
-        {isCreator && (
+        {canEdit && (
           <button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition"
@@ -168,13 +168,13 @@ export default function IncidentLog({ project }) {
       ) : (
         <div className="space-y-2">
           {openIncidents.map((i) => (
-            <IncidentItem key={i._id} incident={i} projectId={project._id} />
+            <IncidentItem key={i._id} incident={i} projectId={project._id} canEdit={canEdit} />
           ))}
           {resolvedIncidents.length > 0 && (
             <>
               {openIncidents.length > 0 && <div className="border-t border-slate-800 my-3" />}
               {resolvedIncidents.map((i) => (
-                <IncidentItem key={i._id} incident={i} projectId={project._id} />
+                <IncidentItem key={i._id} incident={i} projectId={project._id} canEdit={canEdit} />
               ))}
             </>
           )}

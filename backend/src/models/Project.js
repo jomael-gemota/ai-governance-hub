@@ -66,6 +66,18 @@ const proposedSolutionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const riskSchema = new mongoose.Schema(
+  {
+    description: { type: String, required: true },
+    effect: {
+      type: String,
+      enum: ['minimal', 'moderate', 'severe', 'catastrophic'],
+      default: 'minimal',
+    },
+  },
+  { _id: true }
+);
+
 const auditChecklistSchema = new mongoose.Schema(
   {
     dataPrivacy:    { type: String, enum: ['pass', 'fail', 'na'], default: 'na' },
@@ -115,6 +127,7 @@ const projectSchema = new mongoose.Schema(
     proposedSolution: { type: proposedSolutionSchema, default: () => ({}) },
     media: { type: [attachmentSchema], default: [] },
     documents: { type: [attachmentSchema], default: [] },
+    risks: { type: [riskSchema], default: [] },
     milestones: [milestoneSchema],
     incidents: [incidentSchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

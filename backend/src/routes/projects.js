@@ -87,6 +87,7 @@ const parseProjectPayload = (req, fallbackOwner) => {
     techStack: parseJsonField(body.techStack, []).filter(Boolean),
     problemDefinition: parseJsonField(body.problemDefinition, {}),
     proposedSolution: parseJsonField(body.proposedSolution, {}),
+    risks: parseJsonField(body.risks, []).filter((r) => r?.description?.trim()),
     existingMedia: parseJsonField(body.existingMedia, []),
     existingDocuments: parseJsonField(body.existingDocuments, []),
   };
@@ -200,31 +201,39 @@ router.delete('/:id', requireRole('creator'), async (req, res) => {
   }
 });
 
-// POST /api/projects/:id/incidents - log incident (creator only)
-router.post(
-  '/:id/incidents',
-  requireRole('creator'),
-  async (req, res) => {
-    if (!req.body?.title) return res.status(400).json({ message: 'Incident title is required' });
+// POST /api/projects/:id/incidents - log incident (creator or auditor in-review)
+router.post('/:id/incidents', async (req, res) => {
+  if (!req.body?.title) return res.status(400).json({ message: 'Incident title is required' });
 
-    try {
-      const project = await Project.findById(req.params.id);
-      if (!project) return res.status(404).json({ message: 'Project not found' });
-
-      project.incidents.unshift(req.body);
-      await project.save();
-      res.status(201).json(project.incidents[0]);
-    } catch (err) {
-      res.status(500).json({ message: 'Server error', error: err.message });
-    }
-  }
-);
-
-// PATCH /api/projects/:id/incidents/:incidentId - update incident (creator only)
-router.patch('/:id/incidents/:incidentId', requireRole('creator'), async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to log incidents on this project' });
+    }
+
+    project.incidents.unshift(req.body);
+    await project.save();
+    res.status(201).json(project.incidents[0]);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PATCH /api/projects/:id/incidents/:incidentId - update incident (creator or auditor in-review)
+router.patch('/:id/incidents/:incidentId', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to update incidents on this project' });
+    }
 
     const incident = project.incidents.id(req.params.incidentId);
     if (!incident) return res.status(404).json({ message: 'Incident not found' });
@@ -238,11 +247,17 @@ router.patch('/:id/incidents/:incidentId', requireRole('creator'), async (req, r
   }
 });
 
-// POST /api/projects/:id/milestones (creator only)
-router.post('/:id/milestones', requireRole('creator'), async (req, res) => {
+// POST /api/projects/:id/milestones (creator or auditor in-review)
+router.post('/:id/milestones', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to add milestones to this project' });
+    }
 
     project.milestones.push(req.body);
     await project.save();
@@ -252,11 +267,17 @@ router.post('/:id/milestones', requireRole('creator'), async (req, res) => {
   }
 });
 
-// PATCH /api/projects/:id/milestones/:milestoneId (creator only)
-router.patch('/:id/milestones/:milestoneId', requireRole('creator'), async (req, res) => {
+// PATCH /api/projects/:id/milestones/:milestoneId (creator or auditor in-review)
+router.patch('/:id/milestones/:milestoneId', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to update milestones on this project' });
+    }
 
     const milestone = project.milestones.id(req.params.milestoneId);
     if (!milestone) return res.status(404).json({ message: 'Milestone not found' });
@@ -265,6 +286,52 @@ router.patch('/:id/milestones/:milestoneId', requireRole('creator'), async (req,
     if (req.body.completed && !milestone.completedAt) milestone.completedAt = new Date();
     await project.save();
     res.json(milestone);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/projects/:id/risks — creator or auditor (in-review) adds a risk entry
+router.post('/:id/risks', async (req, res) => {
+  try {
+    const { description, effect } = req.body;
+    if (!description?.trim()) return res.status(400).json({ message: 'Risk description is required' });
+
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to add risks to this project' });
+    }
+
+    project.risks.push({ description: description.trim(), effect: effect || 'minimal' });
+    await project.save();
+    res.status(201).json(project.risks[project.risks.length - 1]);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// DELETE /api/projects/:id/risks/:riskId — creator or auditor (in-review) removes a risk entry
+router.delete('/:id/risks/:riskId', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const isCreator = req.user.role === 'creator';
+    const isAuditor = req.user.role === 'auditor';
+    if (!isCreator && !(isAuditor && project.auditStatus === 'in-review')) {
+      return res.status(403).json({ message: 'Not authorized to remove risks from this project' });
+    }
+
+    const risk = project.risks.id(req.params.riskId);
+    if (!risk) return res.status(404).json({ message: 'Risk not found' });
+
+    risk.deleteOne();
+    await project.save();
+    res.json({ message: 'Risk removed' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

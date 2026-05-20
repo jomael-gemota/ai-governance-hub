@@ -7,7 +7,7 @@ import {
   CircleHelp, Lightbulb, XCircle, Workflow, Clock3, Target, Wrench,
   Route, Users, Database, BadgeCheck, Timer, Eye, FileSearch, X,
   ShieldCheck, ShieldX, ShieldAlert, ClipboardList, CheckCircle2,
-  XCircle as XCircleIcon, MinusCircle, Send, Gavel, ChevronDown, ChevronUp,
+  XCircle as XCircleIcon, MinusCircle, Send, Gavel, ChevronDown, ChevronUp, AlertTriangle, Plus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/axios';
@@ -492,6 +492,128 @@ function AuditSection({ project, isCreator, isAuditor, onProjectUpdate }) {
   );
 }
 
+// ─── Risk Assessment ──────────────────────────────────────────────────────────
+
+const EFFECT_META = {
+  minimal:      { label: 'Minimal',      color: 'border-emerald-600/40 text-emerald-400 bg-emerald-500/10' },
+  moderate:     { label: 'Moderate',     color: 'border-yellow-600/40 text-yellow-400 bg-yellow-500/10' },
+  severe:       { label: 'Severe',       color: 'border-orange-600/40 text-orange-400 bg-orange-500/10' },
+  catastrophic: { label: 'Catastrophic', color: 'border-red-600/40 text-red-400 bg-red-500/10' },
+};
+
+function RiskAssessmentSection({ project, isCreator, isAuditor }) {
+  const qc = useQueryClient();
+  const risks = project.risks || [];
+  const canEdit = isCreator || (isAuditor && project.auditStatus === 'in-review');
+  const [draft, setDraft] = useState({ description: '', effect: 'minimal' });
+
+  const addMutation = useMutation({
+    mutationFn: (data) => api.post(`/projects/${project._id}/risks`, data),
+    onSuccess: () => {
+      qc.invalidateQueries(['project', project._id]);
+      setDraft({ description: '', effect: 'minimal' });
+      toast.success('Risk added');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to add risk'),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (riskId) => api.delete(`/projects/${project._id}/risks/${riskId}`),
+    onSuccess: () => {
+      qc.invalidateQueries(['project', project._id]);
+      toast.success('Risk removed');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to remove risk'),
+  });
+
+  const handleAdd = () => {
+    if (!draft.description.trim()) return;
+    addMutation.mutate({ description: draft.description.trim(), effect: draft.effect });
+  };
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <SectionHeader icon={AlertTriangle} title="Risk Assessment" />
+
+      {/* Auditor add form */}
+      {canEdit && (
+        <div className="mb-4 space-y-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+          <p className="text-[11px] text-slate-500 uppercase tracking-wide">Add a Risk Entry</p>
+          <textarea
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd(); } }}
+            rows={2}
+            placeholder="Describe a potential risk observed during review..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {Object.entries(EFFECT_META).map(([value, { label, color }]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDraft({ ...draft, effect: value })}
+                className={`py-1.5 rounded-lg border text-xs font-semibold transition ${
+                  draft.effect === value ? color : 'border-slate-700 text-slate-400 bg-slate-800/50 hover:bg-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={addMutation.isPending || !draft.description.trim()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {addMutation.isPending ? 'Adding…' : 'Add Risk'}
+          </button>
+        </div>
+      )}
+
+      {/* Risk list */}
+      {risks.length > 0 ? (
+        <div className="space-y-3">
+          {risks.map((risk, idx) => {
+            const meta = EFFECT_META[risk.effect] || EFFECT_META.minimal;
+            return (
+              <div key={risk._id || idx} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 flex items-start gap-3">
+                <div className={`mt-0.5 p-1.5 rounded-md border ${meta.color} shrink-0`}>
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-200 leading-relaxed break-words">{risk.description}</p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wide">Effect:</span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>
+                      {meta.label}
+                    </span>
+                  </div>
+                </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => removeMutation.mutate(risk._id)}
+                    disabled={removeMutation.isPending}
+                    className="text-slate-500 hover:text-red-400 transition shrink-0 mt-0.5"
+                    title="Remove risk"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-slate-500 text-sm">No risks declared for this project.</p>
+      )}
+    </div>
+  );
+}
+
 // ─── ProjectDetail ─────────────────────────────────────────────────────────────
 
 export default function ProjectDetail() {
@@ -694,27 +816,17 @@ export default function ProjectDetail() {
             isAuditor={isAuditor}
           />
 
-          {/* Media or Screenshots */}
+          {/* Risk Assessment */}
+          <RiskAssessmentSection project={project} isCreator={isCreator} isAuditor={isAuditor} />
+
+          {/* Milestones */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <SectionHeader icon={ImageIcon} title="Media or Screenshots" />
-            {project.media?.length ? (
-              <div className="grid grid-cols-2 gap-3">
-                {project.media.map((item, idx) => (
-                  <button
-                    key={`${item.url}-${idx}`}
-                    onClick={() => setPreviewItem({ type: 'image', url: item.url, name: item.originalName })}
-                    className="group relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-slate-800"
-                  >
-                    <img src={item.url} alt={item.originalName} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
-                    <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/45 transition flex items-center justify-center">
-                      <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-500 text-sm">No screenshots uploaded.</p>
-            )}
+            <MilestoneTracker project={project} />
+          </div>
+
+          {/* Incidents */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <IncidentLog project={project} />
           </div>
 
           {/* Documentation */}
@@ -743,14 +855,27 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {/* Milestones */}
+          {/* Media or Screenshots */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <MilestoneTracker project={project} />
-          </div>
-
-          {/* Incidents */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <IncidentLog project={project} />
+            <SectionHeader icon={ImageIcon} title="Media or Screenshots" />
+            {project.media?.length ? (
+              <div className="grid grid-cols-2 gap-3">
+                {project.media.map((item, idx) => (
+                  <button
+                    key={`${item.url}-${idx}`}
+                    onClick={() => setPreviewItem({ type: 'image', url: item.url, name: item.originalName })}
+                    className="group relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-slate-800"
+                  >
+                    <img src={item.url} alt={item.originalName} className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
+                    <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/45 transition flex items-center justify-center">
+                      <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">No screenshots uploaded.</p>
+            )}
           </div>
 
         </div>
